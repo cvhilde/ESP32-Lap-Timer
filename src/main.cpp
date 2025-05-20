@@ -13,11 +13,12 @@ TinyGPSCustom satsInView(gps, "GPGSV", 3); // GPGSV sentence, field 3
 
 TinyGPSCustom satNumber[4];
 
-#define Read_VBAT_Voltage 1
+#define VBAT_Read 1
 #define ADC_CTRL 37
-#define ADC_READ_STABILIZE 10
+uint16_t samples[8];
+int avgIndex = 0;
 
-float getVoltage();
+float readBattVoltage();
 uint32_t getSatCount();
 
 void VextON() {
@@ -36,7 +37,8 @@ void setup() {
     Serial.println();
     VextON();
     delay(100);
-    pinMode(1, INPUT);
+    pinMode(ADC_CTRL, OUTPUT);
+    digitalWrite(ADC_CTRL, LOW);
     analogReadResolution(12);
 
     GPS.begin(9600, SERIAL_8N1, 19, 20);
@@ -74,7 +76,7 @@ void drawScreen(double lata, double longa) {
 
     y = display.height() - 16;
     display.setTextAlignment(TEXT_ALIGN_LEFT);
-    float vcc = getVoltage();
+    float vcc = readBattVoltage();
     uint32_t sats = getSatCount();
     sprintf(str2, "%.2fV   Sats: %d", vcc, sats);
     display.drawString(0, y, str2);
@@ -94,13 +96,20 @@ double getLongitude() {
     return gps.location.isValid() ? gps.location.lng() : 0.0;
 }
 
-float getVoltage() {
-    pinMode(ADC_CTRL,OUTPUT);
+float readBattVoltage() {
+    digitalWrite(ADC_CTRL, HIGH);
+    samples[avgIndex++] = analogRead(VBAT_Read);
     digitalWrite(ADC_CTRL, LOW);
-    delay(ADC_READ_STABILIZE); // let GPIO stabilize
-    int analogValue = analogRead(Read_VBAT_Voltage);
-    float voltage = analogValue;
-    return voltage;
+
+    if (avgIndex >= 8) {
+        avgIndex = 0;
+    }
+    uint32_t total = 0;
+    for (int i = 0; i < 8; i++) {
+        total += samples[i];
+    }
+    float avgRaw = total / 8.0;
+    return avgRaw * (3.3 / 4095.0) * 5.215384 * 1.073655914; // Just 5.215384 for 2nd board
 }
 
 uint32_t getSatCount() {
@@ -121,7 +130,7 @@ void loop() {
             double lat = getLatitude();
             double lng = getLongitude();
             uint32_t sats = getSatCount();
-            float vcc = getVoltage();
+            float vcc = readBattVoltage();
 
             Serial.printf("lat: %.5lf | long: %.5lf | sats: %d | vcc %.2f\n", lat, lng, sats, vcc);
             display.clear();

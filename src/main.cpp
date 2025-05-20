@@ -18,8 +18,28 @@ TinyGPSCustom satNumber[4];
 uint16_t samples[8];
 int avgIndex = 0;
 
+typedef struct Point {
+    double lat;
+    double lng;
+    int isSector;
+    int sectorCount;
+    int isActive;
+} Point;
+
+Point activeLocations[2]; // 0 is current, 1 is previous
+Point trackWaypoints[6];
+
 float readBattVoltage();
 uint32_t getSatCount();
+double getLongitude();
+double getLatitude();
+void drawScreen(double lata, double longa);
+void VextOFF();
+void VextON();
+int orientation(Point p1, Point p2, Point p3);
+bool doIntersect(Point p1, Point q1, Point p2, Point q2);
+void storeCurrLocation(double lat, double lng);
+
 
 void VextON() {
     pinMode(Vext,OUTPUT);
@@ -29,32 +49,6 @@ void VextON() {
 void VextOFF() {
     pinMode(Vext,OUTPUT);
     digitalWrite(Vext, HIGH);
-}
-
-void setup() {
-    Serial.begin(115200);
-    Serial.println();
-    Serial.println();
-    VextON();
-    delay(100);
-    pinMode(ADC_CTRL, OUTPUT);
-    digitalWrite(ADC_CTRL, LOW);
-    analogReadResolution(12);
-
-    GPS.begin(9600, SERIAL_8N1, 19, 20);
-    delay(1000);
-    GPS.print("$PMTK220,100*2F\r\n"); // Enable 10 Hz
-    GPS.print("$PMTK300,100,0,0,0,0*2C\r\n"); //  enabling NMEA output rate of 10hz
-    //GPS.print("$PMTK314,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0*29\r\n");
-
-    for (int i = 0; i < 4; ++i) {
-        satNumber[i].begin(gps, "GPGSV", 4 + 4*i);
-        // You can do elevation/azimuth/snr the same way
-}
-
-
-    display.init();
-    display.setFont(ArialMT_Plain_10);
 }
 
 void drawScreen(double lata, double longa) {
@@ -80,11 +74,6 @@ void drawScreen(double lata, double longa) {
     uint32_t sats = getSatCount();
     sprintf(str2, "%.2fV   Sats: %d", vcc, sats);
     display.drawString(0, y, str2);
-
-    //display.setTextAlignment(TEXT_ALIGN_RIGHT);
-    // sprintf(str3, "Sats: %d", gps.satellites.value());
-    // display.drawString(15, y, str3);
-
     display.display();
 }
 
@@ -94,6 +83,11 @@ double getLatitude() {
 
 double getLongitude() {
     return gps.location.isValid() ? gps.location.lng() : 0.0;
+}
+
+uint32_t getSatCount() {
+    int visible = atoi(satsInView.value());
+    return visible;
 }
 
 float readBattVoltage() {
@@ -112,11 +106,77 @@ float readBattVoltage() {
     return avgRaw * (3.3 / 4095.0) * 5.215384 * 1.073655914; // Just 5.215384 for 2nd board
 }
 
-uint32_t getSatCount() {
-    int visible = atoi(satsInView.value());
-    return visible;
+int orientation(Point a, Point b, Point c) {
+    double val = (b.lng - a.lng) * (c.lat - b.lat) - (b.lat - a.lat) * (c.lng - b.lng);
+    if (val == 0.0) {
+        // collinear
+        return 0;
+    } else if (val > 0) {
+        // clockwise
+        return 1;
+    } else {
+        // counter clockwise
+        return 2;
+    }
 }
 
+bool doIntersect(Point p1, Point q1, Point p2, Point q2) {
+    int o1 = orientation(p1, q1, p2);
+    int o2 = orientation(p1, q1, q2);
+    int o3 = orientation(p2, q2, p1);
+    int o4 = orientation(p2, q2, q1);
+
+    return (o1 != o2 && o3 != o4);
+}
+
+void storeCurrLocation(double lat, double lng) {
+    activeLocations[1] = activeLocations[0];
+    activeLocations[0].lat = lat;
+    activeLocations[0].lng = lng;
+    activeLocations[0].isActive = 1;
+}
+
+
+void setup() {
+    Serial.begin(115200);
+    Serial.println();
+    Serial.println();
+    VextON();
+    delay(100);
+    pinMode(ADC_CTRL, OUTPUT);
+    digitalWrite(ADC_CTRL, LOW);
+    analogReadResolution(12);
+
+    GPS.begin(9600, SERIAL_8N1, 19, 20);
+    delay(1000);
+    GPS.print("$PMTK220,100*2F\r\n"); // Enable 10 Hz
+    GPS.print("$PMTK300,100,0,0,0,0*2C\r\n"); //  enabling NMEA output rate of 10hz
+
+    for (int i = 0; i < 4; ++i) {
+        satNumber[i].begin(gps, "GPGSV", 4 + 4*i);
+    }
+
+    display.init();
+    display.setFont(ArialMT_Plain_10);
+
+    // init activelocations
+    for (int i = 0; i < 2; i++) {
+        activeLocations[i].lat = 0;
+        activeLocations[i].lng = 0;
+        activeLocations[i].isSector = 0;
+        activeLocations[i].sectorCount = 0;
+        activeLocations[i].isActive = 0;
+    }
+
+    // init tracked waypoints
+    for (int i = 0; i < 6; i++) {
+        trackWaypoints[i].lat = 0;
+        trackWaypoints[i].lng = 0;
+        trackWaypoints[i].isSector = 0;
+        trackWaypoints[i].sectorCount = 0;
+        trackWaypoints[i].isActive = 0;
+    }
+}
 
 void loop() {
     while (GPS.available()) {
@@ -131,6 +191,7 @@ void loop() {
             double lng = getLongitude();
             uint32_t sats = getSatCount();
             float vcc = readBattVoltage();
+            storeCurrLocation(lat, lng);
 
             Serial.printf("lat: %.5lf | long: %.5lf | sats: %d | vcc %.2f\n", lat, lng, sats, vcc);
             display.clear();

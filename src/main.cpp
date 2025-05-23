@@ -10,38 +10,44 @@
 static SSD1306Wire display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
 TinyGPSPlus gps;
 HardwareSerial GPS(1);
-TinyGPSCustom satsInView(gps, "GPGSV", 3); // GPGSV sentence, field 3
+TinyGPSCustom satsInView(gps, "GPGSV", 3);
 
 TinyGPSCustom satNumber[4];
 
 #define VBAT_Read 1
 #define ADC_CTRL 37
-uint16_t samples[8];
+uint16_t samples[500];
 int avgIndex = 0;
 
-typedef struct Point {
+typedef struct coord {
     double lat;
     double lng;
-    int isSector;
-    int sectorCount;
-    int isActive;
-} Point;
+} coord;
 
-Point activeLocations[2]; // 0 is current, 1 is previous
-Point trackWaypoints[6]; // first 2 are start/finish line, next 4 are the sector waypoints
+typedef struct wayPoint {
+    coord p1;
+    coord p2;
+    int isActive;
+} wayPoint;
+
+coord activeLocations[2]; // 0 is current, 1 is previous
+wayPoint trackWaypoints[3]; // first is start/finish line, next 2 are the sector waypoints
 int currSector = 0;
-#define EARTH_RADIUS 6371000.0 // in meters
+
+const float EARTH_RADIUS_FT = 20902230.0f;
+const float DEG_TO_RADIANS = 0.017453292519943295f;
 
 float readBattVoltage();
 uint32_t getSatCount();
 double getLongitude();
 double getLatitude();
-void drawScreen(double lata, double longa);
+void drawScreen(double lata, double longa, double distance);
 void VextOFF();
 void VextON();
-int orientation(Point p1, Point p2, Point p3);
-bool doIntersect(Point p1, Point q1, Point p2, Point q2);
+int orientation(coord p1, coord p2, coord p3);
+bool doIntersect(coord prev, coord curr, wayPoint wp);
 void storeCurrLocation(double lat, double lng);
+coord midPoint(wayPoint wp);
 
 
 void VextON() {
@@ -121,19 +127,19 @@ float readBattVoltage() {
     samples[avgIndex++] = analogRead(VBAT_Read);
     digitalWrite(ADC_CTRL, LOW);
 
-    if (avgIndex >= 8) {
+    if (avgIndex >= 500) {
         avgIndex = 0;
     }
     uint32_t total = 0;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 500; i++) {
         total += samples[i];
     }
-    float avgRaw = total / 8.0;
+    float avgRaw = total / 500.0;
     return avgRaw * (3.3 / 4095.0) * 5.215384 * 1.073655914; // Just 5.215384 for 2nd board
 }
 
-int orientation(Point a, Point b, Point c) {
-    double val = (b.lng - a.lng) * (c.lat - b.lat) - (b.lat - a.lat) * (c.lng - b.lng);
+int orientation(coord p1, coord p2, coord p3) {
+    double val = (p2.lng - p1.lng) * (p3.lat - p1.lat) - (p2.lat - p1.lat) * (p3.lng - p1.lng);
     if (val == 0.0) {
         // collinear
         return 0;
@@ -146,29 +152,50 @@ int orientation(Point a, Point b, Point c) {
     }
 }
 
-bool doIntersect(Point p1, Point q1, Point p2, Point q2) {
-    int o1 = orientation(p1, q1, p2);
-    int o2 = orientation(p1, q1, q2);
-    int o3 = orientation(p2, q2, p1);
-    int o4 = orientation(p2, q2, q1);
+bool doIntersect(coord prev, coord curr, wayPoint wp) {
+    int o1 = orientation(prev, curr, wp.p1);
+    int o2 = orientation(prev, curr, wp.p2);
+    int o3 = orientation(wp.p1, wp.p2, prev);
+    int o4 = orientation(wp.p1, wp.p2, curr);
 
-    return (o1 != o2 && o3 != o4);
+    if (o1 != o2 && o3 != o4) return true;
+
+    if (o1 == 0 && o2 == 0 && o3 == 0 && o4 == 0) {
+        if (fmin(prev.lng, curr.lng) <= fmax(wp.p1.lng, wp.p2.lng) &&
+            fmin(wp.p1.lng, wp.p2.lng) <= fmax(prev.lng, curr.lng) &&
+            fmin(prev.lat, curr.lat) <= fmax(wp.p1.lat, wp.p2.lat) &&
+            fmin(wp.p1.lat, wp.p2.lat) <= fmax(prev.lat, curr.lat)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void storeCurrLocation(double lat, double lng) {
     activeLocations[1] = activeLocations[0];
     activeLocations[0].lat = lat;
     activeLocations[0].lng = lng;
-    activeLocations[0].isActive = 1;
 }
 
-// note: extremely accurate but resource intensive. consider changing it later
-double distanceCalc(Point p1, Point p2) {
-    double dLat = radians(p1.lat - p2.lat);
-    double dLng = radians(p1.lng - p2.lng);
-    double a = sin(dLat / 2) * sin(dLat / 2) + cos(radians(p1.lat)) * cos(radians(p2.lat)) * sin(dLng / 2) * sin(dLng / 2);
-    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return EARTH_RADIUS * c * 3.28084;
+double distanceCalc(coord p, wayPoint wp) {
+    coord mid = midPoint(wp);
+    float dLat = (mid.lat - p.lat) * DEG_TO_RADIANS;
+    float dLng = (mid.lng - p.lng) * DEG_TO_RADIANS;
+    p.lat *= DEG_TO_RADIANS;
+    mid.lat *= DEG_TO_RADIANS;
+
+    float a = sinf(dLat / 2.0f) * sinf(dLat / 2.0f) + 
+              sinf(dLng / 2.0f) * sinf(dLng / 2.0f) * cosf(p.lat) * cosf(mid.lat);
+    float c = 2.0f * atan2f(sqrtf(a), sqrtf(1.0f - a));
+    return EARTH_RADIUS_FT * c;
+}
+
+coord midPoint(wayPoint wp) {
+    coord mid;
+    mid.lat = (wp.p1.lat + wp.p2.lat) / 2.0;
+    mid.lng = (wp.p1.lng + wp.p2.lng) / 2.0;
+    Serial.printf("%.7f lat | %.7f lng\n", mid.lat, mid.lng);
+    return mid;
 }
 
 
@@ -182,10 +209,8 @@ void setup() {
     digitalWrite(ADC_CTRL, LOW);
     analogReadResolution(12);
 
-    GPS.begin(9600, SERIAL_8N1, 19, 20);
+    GPS.begin(115200, SERIAL_8N1, 19, 20);
     delay(1000);
-    GPS.print("$PMTK220,100*2F\r\n"); // Enable 10 Hz
-    GPS.print("$PMTK300,100,0,0,0,0*2C\r\n"); //  enabling NMEA output rate of 10hz
 
     for (int i = 0; i < 4; ++i) {
         satNumber[i].begin(gps, "GPGSV", 4 + 4*i);
@@ -194,59 +219,28 @@ void setup() {
     display.init();
     display.setFont(ArialMT_Plain_10);
 
-    // init activelocations
     for (int i = 0; i < 2; i++) {
         activeLocations[i].lat = 0;
         activeLocations[i].lng = 0;
-        activeLocations[i].isSector = 0;
-        activeLocations[i].sectorCount = 0;
-        activeLocations[i].isActive = 0;
     }
 
-    // // init tracked waypoints
-    // for (int i = 0; i < 6; i++) {
-    //     trackWaypoints[i].lat = 0;
-    //     trackWaypoints[i].lng = 0;
-    //     trackWaypoints[i].isSector = 0;
-    //     trackWaypoints[i].sectorCount = 0;
-    //     trackWaypoints[i].isActive = 0;
-    // }
-
-    trackWaypoints[0].lat = 28.61339545;
-    trackWaypoints[0].lng = -81.17926727;
+    trackWaypoints[0].p1.lat = 28.613391;
+    trackWaypoints[0].p1.lng = -81.179126;
+    trackWaypoints[0].p2.lat = 28.613467;
+    trackWaypoints[0].p2.lng = -81.179126;
     trackWaypoints[0].isActive = 1;
-    trackWaypoints[0].isSector = 0;
-    trackWaypoints[0].sectorCount = 0;
 
-    trackWaypoints[1].lat = 28.61346579;
-    trackWaypoints[1].lng = -81.17926906;
+    trackWaypoints[1].p1.lat = 28.61392242;
+    trackWaypoints[1].p1.lng = -81.17897079;
+    trackWaypoints[1].p2.lat = 28.61392980;
+    trackWaypoints[1].p2.lng = -81.17906224;
     trackWaypoints[1].isActive = 1;
-    trackWaypoints[1].isSector = 0;
-    trackWaypoints[1].sectorCount = 0;
 
-    trackWaypoints[2].lat = 28.61392242;
-    trackWaypoints[2].lng = -81.17897079;
+    trackWaypoints[2].p1.lat = 28.61364765;
+    trackWaypoints[2].p1.lng = -81.17963668;
+    trackWaypoints[2].p2.lat = 28.61365188;
+    trackWaypoints[2].p2.lng = -81.17954403;
     trackWaypoints[2].isActive = 1;
-    trackWaypoints[2].isSector = 1;
-    trackWaypoints[2].sectorCount = 1;
-
-    trackWaypoints[3].lat = 28.61392980;
-    trackWaypoints[3].lng = -81.17906224;
-    trackWaypoints[3].isActive = 1;
-    trackWaypoints[3].isSector = 1;
-    trackWaypoints[3].sectorCount = 1;
-
-    trackWaypoints[4].lat = 28.61364765;
-    trackWaypoints[4].lng = -81.17963668;
-    trackWaypoints[4].isActive = 1;
-    trackWaypoints[4].isSector = 1;
-    trackWaypoints[4].sectorCount = 2;
-
-    trackWaypoints[5].lat = 28.61365188;
-    trackWaypoints[5].lng = -81.17954403;
-    trackWaypoints[5].isActive = 1;
-    trackWaypoints[5].isSector = 1;
-    trackWaypoints[5].sectorCount = 2;
 }
 
 void loop() {
@@ -256,7 +250,9 @@ void loop() {
 
     static unsigned long lastUpdate = 0;
     static unsigned long lastCrossTime = 0;
-    if (millis() - lastUpdate >= 500) {
+    static unsigned long lastSectorTime = 0;
+    static unsigned long lastLapTime = 0;
+    if (millis() - lastUpdate >= 100) {
         lastUpdate = millis();
         if (gps.location.isValid()) {
             double lat = getLatitude();
@@ -265,24 +261,28 @@ void loop() {
             float vcc = readBattVoltage();
             storeCurrLocation(lat, lng);
 
-            double distance = distanceCalc(activeLocations[0], trackWaypoints[currSector*2]);
-            //drawDistance(distance);
-            for (int i = 0; i < 6; i++) {
-                if (trackWaypoints[i].isActive) {
-                    if (doIntersect(trackWaypoints[i], trackWaypoints[(i+1)%6], activeLocations[1], activeLocations[0])) {
-                        if (millis() - lastCrossTime > 15000) {
-                            lastCrossTime = millis();
-                            drawLaptime(50.69); // placeholder for now until i add lap/sector timing logic
-                            currSector++;
-                            if (currSector > 2) {
-                                currSector = 0;
-                            }
+            double distance = distanceCalc(activeLocations[0], trackWaypoints[currSector]);
+            if (trackWaypoints[currSector].isActive) {
+                if (doIntersect(activeLocations[1], activeLocations[0], trackWaypoints[currSector])) {
+                    if (millis() - lastCrossTime > 15000) {
+                        lastCrossTime = millis();
+                        if (currSector == 0) {
+                            drawLaptime((millis() - lastLapTime) / 1000.0);
+                            lastLapTime = millis();
+                            lastSectorTime = millis();
+                        } else {
+                            drawLaptime((millis() - lastSectorTime) / 1000.0);
+                            lastSectorTime = millis();
+                        }
+                        currSector++;
+                        if (currSector > 2) {
+                            currSector = 0;
                         }
                     }
                 }
             }
 
-            Serial.printf("lat: %.5lf | long: %.5lf | sats: %d | vcc %.2f\n", lat, lng, sats, vcc);
+            Serial.printf("lat: %.5lf | long: %.5lf | sats: %d | dist %.2f\n\n", lat, lng, sats, distance);
             drawScreen(lat, lng, distance);
         } else {
             uint32_t sats = getSatCount();

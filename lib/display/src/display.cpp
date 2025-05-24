@@ -69,9 +69,9 @@ void drawScreen(double lata, double longa, double distance) {
     y = display.height() - 16;
     display.setTextAlignment(TEXT_ALIGN_LEFT);
     float vcc = readBattVoltage();
-    uint32_t sats = getSatCount();
     sprintf(str2, "%.2fV   Dist: %.2lf", vcc, distance);
     display.drawString(0, y, str2);
+
     display.display();
 }
 
@@ -86,36 +86,36 @@ void drawDistance(double distance) {
 }
 
 void drawLaptime(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3, unsigned long lastLap) {
-    unsigned int min = lapTime/60000;
-    unsigned int sec = (lapTime % 60000) / 1000;
-    unsigned int tenths = (lapTime % 1000) / 100;
+    int min = lapTime/60000;
+    int sec = (lapTime % 60000) / 1000;
+    int tenths = (lapTime % 1000) / 100;
 
-    unsigned int min1 = sector1/60000;
-    unsigned int sec1 = (sector1 % 60000) / 1000;
-    unsigned int tenths1 = (sector1 % 1000) / 100;
+    int min1 = sector1/60000;
+    int sec1 = (sector1 % 60000) / 1000;
+    int tenths1 = (sector1 % 1000) / 100;
 
-    unsigned int min2 = sector2/60000;
-    unsigned int sec2 = (sector2 % 60000) / 1000;
-    unsigned int tenths2 = (sector2 % 1000) / 100;
+    int min2 = sector2/60000;
+    int sec2 = (sector2 % 60000) / 1000;
+    int tenths2 = (sector2 % 1000) / 100;
 
-    unsigned int min3 = sector3/60000;
-    unsigned int sec3 = (sector3 % 60000) / 1000;
-    unsigned int tenths3 = (sector3 % 1000) / 100;
+    int min3 = sector3/60000;
+    int sec3 = (sector3 % 60000) / 1000;
+    int tenths3 = (sector3 % 1000) / 100;
 
-    unsigned int min4 = lastLap/60000;
-    unsigned int sec4 = (lastLap % 60000) / 1000;
-    unsigned int tenths4 = (lastLap % 1000) / 100;
+    int min4 = lastLap/60000;
+    int sec4 = (lastLap % 60000) / 1000;
+    int tenths4 = (lastLap % 1000) / 100;
 
     char curr[30];
     char sect1[30];
     char sect2[30];
     char sect3[30];
     char last[30];
-    sprintf(curr, "%u:%02u.%u", min, sec, tenths);
-    sprintf(sect1, "S1 %u:%02u.%u", min1, sec1, tenths1);
-    sprintf(sect2, "S2 %u:%02u.%u", min2, sec2, tenths2);
-    sprintf(sect3, "S3 %u:%02u.%u", min3, sec3, tenths3);
-    sprintf(last, "L %u:%02u.%u", min4, sec4, tenths4);
+    sprintf(curr, "%d:%02d.%d", min, sec, tenths);
+    sprintf(sect1, "S1 %d:%02d.%d", min1, sec1, tenths1);
+    sprintf(sect2, "S2 %d:%02d.%d", min2, sec2, tenths2);
+    sprintf(sect3, "S3 %d:%02d.%d", min3, sec3, tenths3);
+    sprintf(last, "L %d:%02d.%d", min4, sec4, tenths4);
     display.clear();
     display.drawString(40, 5, curr);
     display.drawString(0, 32, sect1);

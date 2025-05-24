@@ -7,7 +7,7 @@
 
 coord activeLocations[2]; // 0 is current, 1 is previous
 wayPoint trackWaypoints[3]; // first is start/finish line, next 2 are the sector waypoints
-int currSector = 0;
+uint8_t currSector = 0;
 
 bool sessionActive = false;
 String currentTimestamp = "";
@@ -24,7 +24,7 @@ static unsigned long previousLapTime = 0;
 static unsigned long sector1Time = 0;
 static unsigned long sector2Time = 0;
 static unsigned long sector3Time = 0;
-static bool firstLap = 0;
+static bool firstLap = true;
 
 
 void setup() {
@@ -54,7 +54,6 @@ void loop() {
 
             double lat = getLatitude();
             double lng = getLongitude();
-            uint32_t sats = getSatCount();
             storeCurrLocation(lat, lng);
 
             if (sessionActive == true) {
@@ -67,11 +66,11 @@ void loop() {
                     if (millis() - lastCrossTime > 15000) {
                         lastCrossTime = millis();
                         if (currSector == 0) {
-                            if (firstLap == 0) {
+                            if (firstLap) {
                                 lastLapTime = millis();
                                 lastSectorTime = millis();
-                                firstLap = 1;
-                            } else if (firstLap == 1) {
+                                firstLap = false;
+                            } else if (!firstLap) {
                                 previousLapTime = millis() - lastLapTime;
                                 lastLapTime = millis();
                                 sector3Time = millis() - lastSectorTime;
@@ -93,15 +92,10 @@ void loop() {
                     }
                 }
             }
-
-            //Serial.printf("lat: %.5lf | long: %.5lf | sats: %d | dist %.2f\n\n", lat, lng, sats, distance);
-            //if (millis() - lastDraw >= 500) {
-            drawLaptime(millis() - lastLapTime, sector1Time, sector2Time, sector3Time, previousLapTime);
-                //lastDraw = millis();
-            //}
+            drawLaptime(millis() - lastLapTime, sector1Time, sector2Time, sector3Time, previousLapTime);   
             
         } else {
-            uint32_t sats = getSatCount();
+            uint8_t sats = getSatCount();
             Serial.printf("sats: %d\n", sats);
             char satInfo[30];
             display.clear();
@@ -112,7 +106,7 @@ void loop() {
             display.display();
         }
     }
-    Serial.println(millis() - loopTime);
-    loopTime = millis();
+    //Serial.println(millis() - loopTime);
+    //loopTime = millis();
 
 }

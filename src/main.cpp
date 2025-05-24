@@ -30,10 +30,9 @@ static bool firstLap = true;
 void setup() {
     Serial.begin(115200);
 
-    initDisplay();
     initGPS();
     initStorage();
-    delay(3000);
+    initDisplay();
 }
 
 void loop() {
@@ -106,7 +105,9 @@ void loop() {
             display.display();
         }
     }
-    //Serial.println(millis() - loopTime);
-    //loopTime = millis();
+    if (millis() - loopTime > 10) {
+        Serial.println(millis() - loopTime);
+    }
+    loopTime = millis();
 
 }

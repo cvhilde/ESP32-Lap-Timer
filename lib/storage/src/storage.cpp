@@ -4,6 +4,9 @@
 #include <globals.h>
 #include <gps.h>
 
+String currLogFile = "";
+String currTimeLogFile = "";
+
 void initStorage() {
     pinMode(BUTTON_PIN, INPUT_PULLUP);
     if (!SPIFFS.begin(true)) {
@@ -27,13 +30,13 @@ void startSession() {
     sprintf(timestamp, "%04d%02d%02d_%02d%02d", year, month, day, hour, minute);
     currentTimestamp = String(timestamp);
 
-    String logFile = "/log_" + currentTimestamp + ".csv";
-    String timeFile = "/timestamps_" + currentTimestamp + ".csv";
+    currLogFile = "/log_" + currentTimestamp + ".csv";
+    currTimeLogFile = "/timestamps_" + currentTimestamp + ".csv";
 
     Serial.printf("GNSS NAV-PVT time: %04d-%02d-%02d %02d:%02d:%02d\n", year, month, day, hour, minute, second);
 
-    File log = SPIFFS.open(logFile, FILE_WRITE);
-    File time = SPIFFS.open(timeFile, FILE_WRITE);
+    File log = SPIFFS.open(currLogFile, FILE_WRITE);
+    File time = SPIFFS.open(currTimeLogFile, FILE_WRITE);
     if (!log || !time) {
         Serial.println("Failed to create session files");
     }
@@ -49,4 +52,9 @@ void startSession() {
 
     Serial.println("Sessions started: " + currentTimestamp);
     sessionActive = true;
+}
+
+void writeToLogFile(double lat, double lng, double speed) {
+    char str[128];
+    sprintf(str, "");
 }

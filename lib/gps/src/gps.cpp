@@ -50,3 +50,7 @@ double getLongitude() {
 uint32_t getSatCount() {
     return gps.getSIV();
 }
+
+double getSpeed() {
+    return gps.getGroundSpeed() * 0.00223694;
+}

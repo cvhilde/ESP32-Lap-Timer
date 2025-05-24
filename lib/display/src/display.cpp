@@ -4,8 +4,17 @@
 #include <globals.h>
 #include <gps.h>
 
+void drawSectorTime(int min, int sec, int tenths, int x, int y, int sector);
+void drawLastLapTime(int min, int sec, int tenths);
+
 uint16_t samples[20];
 int avgIndex = 0;
+
+unsigned long previousLapTime = 0;
+unsigned long previousSect1 = 0;
+unsigned long previousSect2 = 0;
+unsigned long previousSect3 = 0;
+unsigned long previousLastLap = 0;
 
 void initDisplay() {
     VextON();
@@ -19,6 +28,14 @@ void initDisplay() {
     display.drawString(58, 30, "By");
     display.drawString(7, 48, "Carter Hildebrandt");
     display.display();
+    delay(3000);
+    display.clear();
+    drawSectorTime(0, 0, 0, 0, 32, 1);
+    drawSectorTime(0, 0, 0, 64, 32, 2);
+    drawSectorTime(0, 0, 0, 0, 50, 3);
+    drawLastLapTime(0, 0, 0);
+    display.display();
+
 }
 
 void VextON() {
@@ -86,42 +103,79 @@ void drawDistance(double distance) {
 }
 
 void drawLaptime(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3, unsigned long lastLap) {
-    int min = lapTime/60000;
-    int sec = (lapTime % 60000) / 1000;
-    int tenths = (lapTime % 1000) / 100;
+    bool update = false;
 
-    int min1 = sector1/60000;
-    int sec1 = (sector1 % 60000) / 1000;
-    int tenths1 = (sector1 % 1000) / 100;
+    if (lapTime != previousLapTime) {
+        previousLapTime = lapTime;
+        int min = lapTime/60000;
+        int sec = (lapTime % 60000) / 1000;
+        int tenths = (lapTime % 1000) / 100;
 
-    int min2 = sector2/60000;
-    int sec2 = (sector2 % 60000) / 1000;
-    int tenths2 = (sector2 % 1000) / 100;
+        char curr[30];
+        sprintf(curr, "%d:%02d.%d", min, sec, tenths);
+        display.setColor(BLACK);
+        display.fillRect(40, 5, 64, 14);
+        display.setColor(WHITE);
+        display.drawString(40, 5, curr);
+        update = true;
+    }
 
-    int min3 = sector3/60000;
-    int sec3 = (sector3 % 60000) / 1000;
-    int tenths3 = (sector3 % 1000) / 100;
+    if (sector1 != previousSect1) {
+        previousSect1 = sector1;
+        int min1 = sector1/60000;
+        int sec1 = (sector1 % 60000) / 1000;
+        int tenths1 = (sector1 % 1000) / 100;
+        drawSectorTime(min1, sec1, tenths1, 0, 32, 1);
+        update = true;
+    }
 
-    int min4 = lastLap/60000;
-    int sec4 = (lastLap % 60000) / 1000;
-    int tenths4 = (lastLap % 1000) / 100;
+    if (sector2 != previousSect2) {
+        previousSect2 = sector2;
+        int min2 = sector2/60000;
+        int sec2 = (sector2 % 60000) / 1000;
+        int tenths2 = (sector2 % 1000) / 100;
+        drawSectorTime(min2, sec2, tenths2, 64, 32, 2);
+        update = true;
+    }
 
-    char curr[30];
-    char sect1[30];
-    char sect2[30];
-    char sect3[30];
-    char last[30];
-    sprintf(curr, "%d:%02d.%d", min, sec, tenths);
-    sprintf(sect1, "S1 %d:%02d.%d", min1, sec1, tenths1);
-    sprintf(sect2, "S2 %d:%02d.%d", min2, sec2, tenths2);
-    sprintf(sect3, "S3 %d:%02d.%d", min3, sec3, tenths3);
-    sprintf(last, "L %d:%02d.%d", min4, sec4, tenths4);
-    display.clear();
-    display.drawString(40, 5, curr);
-    display.drawString(0, 32, sect1);
-    display.drawString(64, 32, sect2);
-    display.drawString(0, 50, sect3);
-    display.drawString(64, 50, last);
-    display.display();
+    if (sector3 != previousSect3) {
+        previousSect3 = sector3;
+        int min3 = sector3/60000;
+        int sec3 = (sector3 % 60000) / 1000;
+        int tenths3 = (sector3 % 1000) / 100;
+        drawSectorTime(min3, sec3, tenths3, 0, 50, 3);
+        update = true;
+    }
+
+    if (lastLap != previousLastLap) {
+        previousLastLap = lastLap;
+        int min4 = lastLap/60000;
+        int sec4 = (lastLap % 60000) / 1000;
+        int tenths4 = (lastLap % 1000) / 100;
+        drawLastLapTime(min4, sec4, tenths4);
+        update = true;
+    }
+
+    if (update) {
+        display.display();
+    }
+}
+
+void drawSectorTime(int min, int sec, int tenths, int x, int y, int sector) {
+    char str[30];
+    sprintf(str, "S%d %d:%02d.%d", sector, min, sec, tenths);
+    display.setColor(BLACK);
+    display.fillRect(x, y, 64, 14);
+    display.setColor(WHITE);
+    display.drawString(x, y, str);
+}
+
+void drawLastLapTime(int min, int sec, int tenths) {
+    char str[30];
+    sprintf(str, "L    %d:%02d.%d", min, sec, tenths);
+    display.setColor(BLACK);
+    display.fillRect(64, 50, 64, 14);
+    display.setColor(WHITE);
+    display.drawString(64, 50, str);
 }
 

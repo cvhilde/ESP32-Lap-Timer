@@ -11,5 +11,6 @@ void initGPS();
 double getLatitude();
 double getLongitude();
 uint32_t getSatCount();
+double getSpeed();
 
 #endif

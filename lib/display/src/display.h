@@ -1,7 +1,28 @@
+#ifndef DISPLAY_H
+#define DISPLAY_H
+
+#include <Arduino.h>
 #include "HT_SSD1306Wire.h"
 
-// Created by https://oleddisplay.squix.ch/ Consider a donation
-// In case of problems make sure that you are using the font file with the correct version!
+#ifdef __MBED__
+#define PROGMEM
+#endif
+
+
+extern uint16_t samples[20];
+extern int avgIndex;
+
+static SSD1306Wire display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
+
+void initDisplay();
+void VextON();
+void VextOFF();
+float readBattVoltage();
+void drawScreen(double lata, double longa, double distance);
+void drawDistance(double distance);
+void drawLaptime(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3, unsigned long lastLap);
+
+
 const uint8_t Roboto_Light_14[] PROGMEM = {
 	0x0D, // Width: 13
 	0x11, // Height: 17
@@ -458,3 +479,5 @@ const uint8_t Roboto_Light_14[] PROGMEM = {
 	0x00,0x00,0x00,0xFC,0xFF,0x00,0x60,0x08,0x00,0x20,0x18,0x00,0x20,0x10,0x00,0x20,0x18,0x00,0xE0,0x0F,0x00,0x00,0x03,	// 254
 	0x20,0x00,0x00,0xE0,0x80,0x00,0x88,0xC7,0x00,0x08,0x7C,0x00,0x00,0x0E,0x00,0xC8,0x01,0x00,0x28	// 255
 };
+
+#endif

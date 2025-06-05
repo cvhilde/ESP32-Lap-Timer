@@ -7,6 +7,10 @@
 String currLogFile = "";
 String currTimeLogFile = "";
 
+unsigned long lastLogTime = 0;
+unsigned long bufferWaitTime = 5000;    //5 second buffer
+String logBuffer;
+
 void initStorage() {
     pinMode(BUTTON_PIN, INPUT_PULLUP);
     if (!SPIFFS.begin(true)) {
@@ -41,6 +45,9 @@ void startSession() {
         Serial.println("Failed to create session files");
     }
 
+    log.println("Latitude,Longitude,Speed(MPH)");
+    time.println("Laptime,Sector1,Sector2,Sector3");
+
     log.close();
     time.close();
 
@@ -56,5 +63,19 @@ void startSession() {
 
 void writeToLogFile(double lat, double lng, double speed) {
     char str[128];
-    sprintf(str, "");
+    sprintf(str, "%.8lf,%.8lf,%.2lf\n", lat, lng, speed);
+
+    logBuffer += str;
+
+    if (logBuffer.length() > 1024 || millis() - lastLogTime >= bufferWaitTime) {
+        lastLogTime = millis();
+
+        File log = SPIFFS.open(currLogFile, FILE_APPEND);
+        if (log) {
+            log.print(logBuffer);
+            log.close();
+            
+            logBuffer = "";
+        }
+    }
 }

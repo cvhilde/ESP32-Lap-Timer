@@ -46,7 +46,6 @@ void loop() {
                 startSession();
             } else if (prevButtonState == HIGH && currButtonState == LOW && millis() - lastButtonPress > 1000 && sessionActive == true) {
                 sessionActive = false;
-                //endSession() logic;
                 Serial.println("Ending session");
             }
             prevButtonState = currButtonState;
@@ -57,6 +56,7 @@ void loop() {
 
             if (sessionActive == true) {
                 // log data
+                writeToLogFile(lat, lng, getSpeed());
             }
 
             double distance = distanceCalc(activeLocations[0], trackWaypoints[currSector]);

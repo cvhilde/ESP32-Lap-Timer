@@ -3,5 +3,6 @@
 
 void startSession();
 void initStorage();
+void writeToLogFile(double lat, double lng, double speed);
 
 #endif

@@ -21,4 +21,4 @@ ESP32 and once I begin building the app for the IOS and Android, I'll include th
 - Writing a running list of lap times to the flash
 - Implement a way to clear all stored data in flash when uploaded over bluetooth
 
-![hippo](https://i.imgur.com/rHUdSRj.gif)
+![screen demo](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNTYzaXUzNzYzajUxbDU1MzN1cmloYzI1cXljNjNwcHM1cnJpcTJzbCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/QZPMouXupVzR3BWeDb/giphy.gif)

@@ -18,11 +18,13 @@ void initStorage() {
     }
 }
 
+// starts session by updating the curr Strings, and creating the file
+// prints the csv file header for both, and updates the sessions.txt manifest
 void startSession() {
     uint16_t year = gps.getYear();
     uint8_t month = gps.getMonth();
     uint8_t day = gps.getDay();
-    uint8_t hour = gps.getHour() - 4;
+    uint8_t hour = gps.getHour() - 4; // timezone difference
     uint8_t minute = gps.getMinute();
     uint8_t second = gps.getSecond();
 
@@ -61,6 +63,8 @@ void startSession() {
     sessionActive = true;
 }
 
+// writes incoming updates in a log, and will only flush to the log file
+// every 5 seconds. done to reduce amount of times opening and closing file
 void writeToLogFile(double lat, double lng, double speed) {
     char str[128];
     sprintf(str, "%.8lf,%.8lf,%.2lf\n", lat, lng, speed);

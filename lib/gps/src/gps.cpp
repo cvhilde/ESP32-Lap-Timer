@@ -6,6 +6,8 @@
 SFE_UBLOX_GNSS gps;
 HardwareSerial GPS(1);
 
+// gps module initialization
+// using hardcoded waypoint markers for testing
 void initGPS() {
     GPS.begin(115200, SERIAL_8N1, 19, 20);
     delay(1000);

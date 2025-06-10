@@ -5,9 +5,10 @@
 
 #define VBAT_Read 1
 #define ADC_CTRL 37
-#define BUTTON_PIN 0
+#define BUTTON_PIN 46
 #define GPS_Rx 19
 #define GPS_Tx 20
+#define LED_PIN 26
 
 typedef struct coord {
     double lat;

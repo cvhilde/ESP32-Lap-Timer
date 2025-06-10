@@ -16,6 +16,7 @@ unsigned long previousSect2 = 0;
 unsigned long previousSect3 = 0;
 unsigned long previousLastLap = 0;
 
+// initializes the display while alos drawing the basic sector times
 void initDisplay() {
     VextON();
     delay(100);
@@ -38,16 +39,14 @@ void initDisplay() {
 
 }
 
+// give power to the display
 void VextON() {
     pinMode(Vext,OUTPUT);
     digitalWrite(Vext, LOW);
 }
 
-void VextOFF() {
-    pinMode(Vext,OUTPUT);
-    digitalWrite(Vext, HIGH);
-}
-
+// read the battery voltage and get a running average going to prevent voltage from visibly spiking
+// due to inconsistent readings
 float readBattVoltage() {
     digitalWrite(ADC_CTRL, HIGH);
     samples[avgIndex++] = analogRead(VBAT_Read);
@@ -64,6 +63,7 @@ float readBattVoltage() {
     return avgRaw * (3.3 / 4095.0) * 5.215384 * 1.073655914; // Just 5.215384 for 2nd board
 }
 
+// basic status screen (no longer use)
 void drawScreen(double lata, double longa, double distance) {
     display.clear();
 
@@ -92,6 +92,7 @@ void drawScreen(double lata, double longa, double distance) {
     display.display();
 }
 
+// draw only the distance
 void drawDistance(double distance) {
     display.clear();
     char str[20];
@@ -102,6 +103,9 @@ void drawDistance(double distance) {
     display.display();
 }
 
+// optimized lap time drawing logic
+// will draw a black square where the time used to be, then draw the time
+// allows screen updates without clearing and rewriting the entire screen
 void drawLaptime(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3, unsigned long lastLap) {
     bool update = false;
 
@@ -161,6 +165,7 @@ void drawLaptime(unsigned long lapTime, unsigned long sector1, unsigned long sec
     }
 }
 
+// helper function to draw laptime in specifed slot
 void drawSectorTime(int min, int sec, int tenths, int x, int y, int sector) {
     char str[30];
     sprintf(str, "S%d %d:%02d.%d", sector, min, sec, tenths);
@@ -170,6 +175,7 @@ void drawSectorTime(int min, int sec, int tenths, int x, int y, int sector) {
     display.drawString(x, y, str);
 }
 
+// helper for last lap time since it uses "L" instead of "S"
 void drawLastLapTime(int min, int sec, int tenths) {
     char str[30];
     sprintf(str, "L    %d:%02d.%d", min, sec, tenths);

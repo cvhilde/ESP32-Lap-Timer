@@ -16,7 +16,6 @@ static SSD1306Wire display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RS
 
 void initDisplay();
 void VextON();
-void VextOFF();
 float readBattVoltage();
 void drawScreen(double lata, double longa, double distance);
 void drawDistance(double distance);

@@ -4,6 +4,8 @@
 #include <TimeLib.h>
 #include <globals.h>
 
+// calculates the physical orientation
+// uses a formula from GeeksforGeeks
 int orientation(coord p1, coord p2, coord p3) {
     double val = (p2.lng - p1.lng) * (p3.lat - p1.lat) - (p2.lat - p1.lat) * (p3.lng - p1.lng);
     if (val == 0.0) {
@@ -18,31 +20,30 @@ int orientation(coord p1, coord p2, coord p3) {
     }
 }
 
+// if the orientation between the first two points are different,
+// as well as the orientation between the second two points are different,
+// then the lines intersect.
 bool doIntersect(coord prev, coord curr, wayPoint wp) {
     int o1 = orientation(prev, curr, wp.p1);
     int o2 = orientation(prev, curr, wp.p2);
     int o3 = orientation(wp.p1, wp.p2, prev);
     int o4 = orientation(wp.p1, wp.p2, curr);
 
-    if (o1 != o2 && o3 != o4) return true;
-
-    if (o1 == 0 && o2 == 0 && o3 == 0 && o4 == 0) {
-        if (fmin(prev.lng, curr.lng) <= fmax(wp.p1.lng, wp.p2.lng) &&
-            fmin(wp.p1.lng, wp.p2.lng) <= fmax(prev.lng, curr.lng) &&
-            fmin(prev.lat, curr.lat) <= fmax(wp.p1.lat, wp.p2.lat) &&
-            fmin(wp.p1.lat, wp.p2.lat) <= fmax(prev.lat, curr.lat)) {
-            return true;
-        }
+    if (o1 != o2 && o3 != o4) {
+        return true;
+    } else {
+        return false;
     }
-    return false;
 }
 
+// helper function to update current location waypoint
 void storeCurrLocation(double lat, double lng) {
     activeLocations[1] = activeLocations[0];
     activeLocations[0].lat = lat;
     activeLocations[0].lng = lng;
 }
 
+// distance calculation using the haversine formula
 double distanceCalc(coord p, wayPoint wp) {
     coord mid = midPoint(wp);
     float dLat = (mid.lat - p.lat) * DEG_TO_RADIANS;
@@ -56,6 +57,7 @@ double distanceCalc(coord p, wayPoint wp) {
     return EARTH_RADIUS_FT * c;
 }
 
+// for the distance calculation, so it can use the midpoint
 coord midPoint(wayPoint wp) {
     coord mid;
     mid.lat = (wp.p1.lat + wp.p2.lat) / 2.0;

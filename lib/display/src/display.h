@@ -12,9 +12,10 @@
 extern uint16_t samples[20];
 extern int avgIndex;
 
-static SSD1306Wire display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
+extern SSD1306Wire display;
 
 void initDisplay();
+void firstDraw();
 void VextON();
 float readBattVoltage();
 void drawScreen(double lata, double longa, double distance);
@@ -22,6 +23,10 @@ void drawDistance(double distance);
 void drawLaptime(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3, unsigned long lastLap);
 void drawSectorTime(int min, int sec, int tenths, int x, int y, int sector);
 void drawLastLapTime(int min, int sec, int tenths);
+void startBlink(unsigned long interval);
+void stopBlink();
+void turnLEDOn();
+void turnLEDOff();
 
 
 const uint8_t Roboto_Light_14[] PROGMEM = {

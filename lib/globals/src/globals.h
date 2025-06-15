@@ -31,5 +31,7 @@ const float DEG_TO_RADIANS = 0.017453292519943295f;
 extern String currentTimestamp;
 extern bool sessionActive;
 
+extern int lapNumber;
+
 
 #endif

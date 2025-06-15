@@ -48,7 +48,7 @@ void startSession() {
     }
 
     log.println("Latitude,Longitude,Speed(MPH)");
-    time.println("Laptime,Sector1,Sector2,Sector3");
+    time.println("LapNumber,Laptime,Sector1,Sector2,Sector3");
 
     log.close();
     time.close();
@@ -81,5 +81,16 @@ void writeToLogFile(double lat, double lng, double speed) {
             
             logBuffer = "";
         }
+    }
+}
+
+void writeToTimeLog(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3) {
+    char str[128];
+    sprintf(str, "%d,%lu,%lu,%lu,%lu\n", lapNumber, lapTime, sector1, sector2, sector3);
+
+    File timeLog = SPIFFS.open(currTimeLogFile, FILE_APPEND);
+    if (timeLog) {
+        timeLog.print(str);
+        timeLog.close();
     }
 }

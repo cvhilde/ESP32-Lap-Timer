@@ -3,6 +3,9 @@
 #include <Wire.h>
 #include <globals.h>
 #include <gps.h>
+#include <Ticker.h>
+
+SSD1306Wire display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
 
 void drawSectorTime(int min, int sec, int tenths, int x, int y, int sector);
 void drawLastLapTime(int min, int sec, int tenths);
@@ -15,6 +18,9 @@ unsigned long previousSect1 = 0;
 unsigned long previousSect2 = 0;
 unsigned long previousSect3 = 0;
 unsigned long previousLastLap = 0;
+
+Ticker led;
+bool blinkActive = false;
 
 // initializes the display while alos drawing the basic sector times
 void initDisplay() {
@@ -29,14 +35,17 @@ void initDisplay() {
     display.drawString(58, 30, "By");
     display.drawString(7, 48, "Carter Hildebrandt");
     display.display();
-    delay(3000);
+    delay(5000);
+
+}
+
+void firstDraw() {
     display.clear();
     drawSectorTime(0, 0, 0, 0, 32, 1);
     drawSectorTime(0, 0, 0, 64, 32, 2);
     drawSectorTime(0, 0, 0, 0, 50, 3);
     drawLastLapTime(0, 0, 0);
     display.display();
-
 }
 
 // give power to the display
@@ -185,3 +194,30 @@ void drawLastLapTime(int min, int sec, int tenths) {
     display.drawString(64, 50, str);
 }
 
+
+void IRAM_ATTR onBlink() {
+    if (blinkActive) {
+        digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+    }
+}
+
+void startBlink(unsigned long interval) {
+    pinMode(LED_PIN, OUTPUT);
+    blinkActive = true;
+
+    led.attach_ms(interval, onBlink);
+}
+
+void stopBlink() {
+    blinkActive = false;
+    led.detach();
+    digitalWrite(LED_PIN, LOW);
+}
+
+void turnLEDOn() {
+    digitalWrite(LED_PIN, HIGH);
+}
+
+void turnLEDOff() {
+    digitalWrite(LED_PIN, LOW);
+}

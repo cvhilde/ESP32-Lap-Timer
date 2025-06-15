@@ -11,11 +11,9 @@ HardwareSerial GPS(1);
 void initGPS() {
     GPS.begin(115200, SERIAL_8N1, 19, 20);
     delay(1000);
-    if (!gps.begin(GPS)) {
-        Serial.println("GNSS init failed");
-        while (1);
-    }
-
+    
+    gps.begin(GPS);
+    delay(1000);
 
     for (int i = 0; i < 2; i++) {
         activeLocations[i].lat = 0;

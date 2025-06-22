@@ -14,11 +14,11 @@ ESP32 and once I begin building the app for the IOS and Android, I'll include th
 - All logic associated with GPS functionality
 - Creating the sesssion logs and writing a running a list of positions
 - Drawing the sector/lap times to the display
+- Writing a running list of lap times to the flash
 
 ## To do list
 - Possibly change display logic to instead only feature a status screen (voltage, satellite strength, bluetooth status, etc)
 - Implement all bluetooth logic
-- Writing a running list of lap times to the flash
 - Implement a way to clear all stored data in flash when uploaded over bluetooth
 
 ![screen demo](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNTYzaXUzNzYzajUxbDU1MzN1cmloYzI1cXljNjNwcHM1cnJpcTJzbCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/QZPMouXupVzR3BWeDb/giphy.gif)

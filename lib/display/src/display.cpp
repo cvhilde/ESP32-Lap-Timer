@@ -46,6 +46,7 @@ void firstDraw() {
     drawSectorTime(0, 0, 0, 0, 50, 3);
     drawLastLapTime(0, 0, 0);
     display.display();
+    delay (1000);
 }
 
 // give power to the display

@@ -33,6 +33,9 @@ bool ledFlag = true;
 static unsigned long continuousLoopTime = 0;
 int loopCount = 0;
 
+double lat = 0.0;
+double lng = 0.0;
+
 
 void setup() {
     Serial.begin(115200);
@@ -77,8 +80,8 @@ void loop() {
             prevButtonState = currButtonState;
 
             // update current location
-            double lat = getLatitude();
-            double lng = getLongitude();
+            lat = getLatitude();
+            lng = getLongitude();
             storeCurrLocation(lat, lng);
 
             // log the data

@@ -15,10 +15,13 @@ ESP32 and once I begin building the app for the IOS and Android, I'll include th
 - Creating the sesssion logs and writing a running a list of positions
 - Drawing the sector/lap times to the display
 - Writing a running list of lap times to the flash
+- Basic functionality to download log files to a pc over bluetooth
+- Purges all log files in flash when uploaded
 
 ## To do list
 - Possibly change display logic to instead only feature a status screen (voltage, satellite strength, bluetooth status, etc)
-- Implement all bluetooth logic
-- Implement a way to clear all stored data in flash when uploaded over bluetooth
+- Add a way to upload a json file with waypoints for lap tracking 
+- Implement a second mode that will do simple route tracking without any waypoint logic
+- Add LED logic to signal if a session start fails
 
 ![screen demo](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNTYzaXUzNzYzajUxbDU1MzN1cmloYzI1cXljNjNwcHM1cnJpcTJzbCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/QZPMouXupVzR3BWeDb/giphy.gif)

@@ -23,6 +23,8 @@ void drawDistance(double distance);
 void drawLaptime(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3, unsigned long lastLap);
 void drawSectorTime(int min, int sec, int tenths, int x, int y, int sector);
 void drawLastLapTime(int min, int sec, int tenths);
+void drawSpeed(double speed);
+void drawStorage(size_t percent);
 void startBlink(unsigned long interval);
 void stopBlink();
 void turnLEDOn();

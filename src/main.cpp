@@ -3,38 +3,44 @@
 #include <gps.h>
 #include <waypoints.h>
 #include <storage.h>
-
+#include <ble.h>
+#include "esp_heap_caps.h"
 
 coord activeLocations[2]; // 0 is current, 1 is previous
 wayPoint trackWaypoints[3]; // first is start/finish line, next 2 are the sector waypoints
 uint8_t currSector = 0;
-
 bool sessionActive = false;
 String currentTimestamp = "";
-
 static unsigned long loopTime = 0; 
 static unsigned long lastUpdate = 0;
 static unsigned long lastCrossTime = 0;
 static unsigned long lastSectorTime = 0;
 unsigned long lastLapTime = 0;
 static unsigned long lastButtonPress = 0;
-static unsigned long lastDraw = 0;
 static bool prevButtonState = HIGH;
 static unsigned long previousLapTime = 0;
 static unsigned long sector1Time = 0;
 static unsigned long sector2Time = 0;
 static unsigned long sector3Time = 0;
 static bool firstLap = true;
-
 int lapNumber = 0;
-
 bool ledFlag = true;
-
-static unsigned long continuousLoopTime = 0;
 int loopCount = 0;
-
 double lat = 0.0;
 double lng = 0.0;
+bool currButtonState = false;
+unsigned long startButtonPressDurr = 0;
+unsigned long buttonPressDurr = 0;
+bool beginButtonLogic = false;
+bool advertising = false;
+bool beginAdvLightBlink = false;
+unsigned long advLightStartTime = 0;
+bool advFailLogic = false;
+unsigned long advFailedLightStart = 0;
+bool advFailLight = false;
+
+static unsigned long continuousLoopTime = 0;
+unsigned long lastStorageSizeDraw = 0;
 
 
 void setup() {
@@ -46,6 +52,7 @@ void setup() {
     firstDraw();
     initStorage();
     initGPS();
+    initBLE();
 
     stopBlink();
     startBlink(500);
@@ -54,10 +61,16 @@ void setup() {
 void loop() {
     // update gps at 25 hz
     gps.checkUblox();
+    BLE_loop();
     
     // perform rest of loop at 10 hz
     if (millis() - lastUpdate >= 100) {
         lastUpdate = millis();
+
+        if (millis() - lastStorageSizeDraw > 1000) {
+            drawStorage(storageUsage());
+            lastStorageSizeDraw = millis();
+        }
 
         if (gps.getFixType() > 1) {
             if (ledFlag) {
@@ -65,19 +78,80 @@ void loop() {
                 ledFlag = false;
             }
 
-            // button logic for starting and ending the session
-            bool currButtonState = digitalRead(BUTTON_PIN);
-            if (prevButtonState == HIGH && currButtonState == LOW && millis() - lastButtonPress > 1000 && sessionActive == false) {
-                lastButtonPress = millis();
-                turnLEDOn();
-                startSession();
-            } else if (prevButtonState == HIGH && currButtonState == LOW && millis() - lastButtonPress > 1000 && sessionActive == true) {
-                sessionActive = false;
-                lapNumber = 0;
-                turnLEDOff();
-                Serial.println("Ending session");
+            // button logic for counting button press duration
+            currButtonState = digitalRead(BUTTON_PIN);
+            if (prevButtonState == HIGH && currButtonState == LOW) {
+                startButtonPressDurr = millis();
+            }
+
+            // once released, tally total and update begin variable
+            if (prevButtonState == LOW && currButtonState == HIGH) {
+                buttonPressDurr = millis() - startButtonPressDurr;
+                beginButtonLogic = true;
             }
             prevButtonState = currButtonState;
+
+            // once released, determine what button logic to procede with
+            if (beginButtonLogic) {
+                if (buttonPressDurr < 3000) {
+                    if (!sessionActive) {
+                        Serial.println("Beginning session");
+                        turnLEDOn();
+                        startSession();
+                    } else if (sessionActive) {
+                        sessionActive = false;
+                        lapNumber = 0;
+                        turnLEDOff();
+                        endSession();
+                        Serial.println("Ending session");
+                    }
+                } else if (buttonPressDurr >= 3000 && buttonPressDurr < 6000) {
+                    Serial.println("Long press detected. Starting BLE advertising");
+                    startAdvertising();
+                    advertising = true;
+                } else if (buttonPressDurr >= 6000) {
+                    Serial.println("Switching modes");
+                    // switch between lap timing and route tracking
+                }
+                beginButtonLogic = false;
+            }
+
+
+            // BLE led status logic
+            if (advertising) {
+                if (!beginAdvLightBlink) {
+                    Serial.println("Beginning advertising");
+                    startBlink(1000);
+                    advLightStartTime = millis();
+                    beginAdvLightBlink = true;
+                } else if (millis() - advLightStartTime >= 60000) {
+                    Serial.println("BLE pairing timeout");
+                    stopBlink();
+                    beginAdvLightBlink = false;
+                    stopAdvertising();
+                    advertising = false;
+                    advFailLogic = true;
+                    advFailedLightStart = millis();
+                } else if (isConnected()) {
+                    advertising = false;
+                    beginAdvLightBlink = false;
+                    advFailLogic = false;
+                    Serial.println("BLE Connected");
+                    stopBlink();
+                }
+            }
+
+            if (!advertising && !isConnected() && advFailLogic) {
+                if (!advFailLight) {
+                    Serial.println("Beginning LED blinking");
+                    advFailLight = true;
+                    startBlink(200);
+                } else if (millis() - advFailedLightStart >= 3000) {
+                    stopBlink();
+                    advFailLogic = false;
+                    Serial.println("BLE failed LED blink stopping");
+                }
+            }
 
             // update current location
             lat = getLatitude();
@@ -128,7 +202,8 @@ void loop() {
                     } // end of sector logic
                 }
             } // end of waypoint logic
-            drawLaptime(millis() - lastLapTime, sector1Time, sector2Time, sector3Time, previousLapTime);   
+            drawLaptime(millis() - lastLapTime, sector1Time, sector2Time, sector3Time, previousLapTime);
+            drawSpeed(getSpeed());
 
         } else {
             if (!ledFlag) {
@@ -154,6 +229,7 @@ void loop() {
             float clockRate = loopCount / 10.0;
             Serial.printf("Loop Frequency: %.2f\n", clockRate);
             loopCount = 0;
+            Serial.printf("Free Heap: %u B\n", heap_caps_get_free_size(MALLOC_CAP_8BIT));
         }
 
     } // end of 10 hz loop

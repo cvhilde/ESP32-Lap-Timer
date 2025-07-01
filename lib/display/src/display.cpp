@@ -195,6 +195,24 @@ void drawLastLapTime(int min, int sec, int tenths) {
     display.drawString(64, 50, str);
 }
 
+void drawSpeed(double speed) {
+    char str[30];
+    sprintf(str, "%.0f", speed);
+    display.setColor(BLACK);
+    display.fillRect(0, 0, 40, 16);
+    display.setColor(WHITE);
+    display.drawString(0, 0, str);
+}
+
+void drawStorage(size_t percent) {
+    char str[30];
+    sprintf(str, "%u%%", percent);
+    display.setColor(BLACK);
+    display.fillRect(106, 0, 22, 16);
+    display.setColor(WHITE);
+    display.drawString(106, 0, str);
+}
+
 
 void IRAM_ATTR onBlink() {
     if (blinkActive) {

@@ -8,28 +8,31 @@
 #define PROGMEM
 #endif
 
-
-extern uint16_t samples[20];
-extern int avgIndex;
-
 extern SSD1306Wire display;
 
 void initDisplay();
-void firstDraw();
+void permDraws();
 void VextON();
-float readBattVoltage();
-void drawScreen(double lata, double longa, double distance);
-void drawDistance(double distance);
-void drawLaptime(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3, unsigned long lastLap);
-void drawSectorTime(int min, int sec, int tenths, int x, int y, int sector);
-void drawLastLapTime(int min, int sec, int tenths);
-void drawSpeed(double speed);
-void drawStorage(size_t percent);
 void startBlink(unsigned long interval);
 void stopBlink();
 void turnLEDOn();
 void turnLEDOff();
+void drawStatusScreen();
+void drawCurrentMode(bool current);
+void displayPurgingMessage();
+void clearPurgingMessage();
 
+
+const unsigned char satelliteBitmap[] PROGMEM = {
+    0b00110000,
+    0b01111000,
+    0b01111000,
+    0b00110000,
+    0b00001100,
+    0b00011110,
+    0b00011110,
+    0b00001100
+};
 
 const uint8_t Roboto_Light_14[] PROGMEM = {
 	0x0D, // Width: 13

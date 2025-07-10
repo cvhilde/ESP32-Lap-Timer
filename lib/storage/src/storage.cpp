@@ -8,20 +8,18 @@ String currLogFile = "";
 String currTimeLogFile = "";
 
 unsigned long lastLogTime = 0;
-unsigned long bufferWaitTime = 5000;    //0.5 second buffer
+unsigned long bufferWaitTime = 5000;    //5 second buffer
 String logBuffer;
 unsigned long logTimeBegin = 0;
 
-/* ------------ compile-time limits ------------ */
-constexpr size_t kRamLimit   = 180 * 1024;      // 180 kB ≈ 18 min @ 10 kB/min
-constexpr size_t kLineMax    = 128;             // longest CSV line
+constexpr size_t kRamLimit   = 180 * 1024;  // 180 kB ≈ 18 min @ 10 kB/min
+constexpr size_t kLineMax    = 128; // longest CSV line
 
-/* ------------ static buffer avoids malloc-fail & frag ------------ */
 static char   logBuf[kRamLimit];
-static size_t logPos = 0;                       // # bytes currently used
+static size_t logPos = 0;   // # bytes currently used
 
 void flushRamToFlash();
-size_t storageUsage();
+double storageUsage();
 
 
 void initStorage() {
@@ -29,11 +27,6 @@ void initStorage() {
     if (!SPIFFS.begin(true)) {
         Serial.println("SPIFFS mount failed");
     }
-
-    size_t total = SPIFFS.totalBytes();   // size of the SPIFFS partition
-    size_t used  = SPIFFS.usedBytes();    // how much is already occupied
-
-    Serial.printf("\nSPIFFS usage: %u / %u bytes  (%.1f %%)\n", used, total, 100.0 * used / total);
 }
 
 // starts session by updating the curr Strings, and creating the file
@@ -89,14 +82,11 @@ void writeToLogFile(double lat, double lng, double speed) {
     }
 
     char line[kLineMax];
-    int  n = snprintf(line, sizeof(line),
-                      "%.7lf,%.7lf,%.2lf,%lu\n",
-                      lat, lng, speed, millis() - logTimeBegin);
+    int  n = snprintf(line, sizeof(line), "%.7lf,%.7lf,%.2lf,%lu\n", lat, lng, speed, millis() - logTimeBegin);
 
-    /* ---- drop if buffer overflow would occur ---- */
     if (logPos + n > kRamLimit) {
         flushRamToFlash();          // write the 180 kB chunk
-        if (n > kRamLimit) return;  // (should never happen)
+        if (n > kRamLimit) return;
     }
 
     memcpy(logBuf + logPos, line, n);
@@ -132,9 +122,9 @@ void flushRamToFlash() {
     logPos = 0;
 }
 
-size_t storageUsage() {
+double storageUsage() {
     size_t total = SPIFFS.totalBytes();   // size of the SPIFFS partition
     size_t used  = SPIFFS.usedBytes();    // how much is already occupied
 
-    return (used * 100) / total;
+    return (used * 100.0) / total;
 }

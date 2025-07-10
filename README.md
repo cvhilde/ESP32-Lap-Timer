@@ -13,15 +13,16 @@ ESP32 and once I begin building the app for the IOS and Android, I'll include th
 - Sector/Lap timing logic (waypoint crossing and storing the times)
 - All logic associated with GPS functionality
 - Creating the sesssion logs and writing a running a list of positions
-- Drawing the sector/lap times to the display
+- Draws a information screen on the display. Shows GPS connectivity, SIV, Storage usage, BLE Status, file transfer status, and the current mode
 - Writing a running list of lap times to the flash
 - Basic functionality to download log files to a pc over bluetooth
 - Purges all log files in flash when uploaded
+- Added a way to switch to route tracking mode. This reduces the loop clock rate to 5 Hz for longer seession storage limits.
 
 ## To do list
-- Possibly change display logic to instead only feature a status screen (voltage, satellite strength, bluetooth status, etc)
-- Add a way to upload a json file with waypoints for lap tracking 
-- Implement a second mode that will do simple route tracking without any waypoint logic
+- Add a way to upload a json file with waypoints for lap tracking
 - Add LED logic to signal if a session start fails
+- Add a new csv file entry for route tracking with possibly more information and so no timestamp file will be created.
+- Update main loop logic to exclude the execution of waypoint logic when in route tracking mode.
 
 ![screen demo](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNTYzaXUzNzYzajUxbDU1MzN1cmloYzI1cXljNjNwcHM1cnJpcTJzbCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/QZPMouXupVzR3BWeDb/giphy.gif)

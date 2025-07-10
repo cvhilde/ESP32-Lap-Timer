@@ -47,7 +47,7 @@ double getLongitude() {
     return gps.getLongitude() / 10000000.0;
 }
 
-uint32_t getSatCount() {
+int getSatCount() {
     return gps.getSIV();
 }
 

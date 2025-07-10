@@ -19,6 +19,11 @@ void initBLE();
 void startAdvertising();
 void stopAdvertising();
 bool isConnected();
+bool isAdvertising();
+int getFileCount();
+int getCurrentFileNumber();
+bool isSending();
+bool isPurging();
 
 void BLE_loop();
 uint32_t crc32_file(File &f);

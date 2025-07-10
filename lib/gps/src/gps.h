@@ -10,7 +10,7 @@ extern HardwareSerial GPS;
 void initGPS();
 double getLatitude();
 double getLongitude();
-uint32_t getSatCount();
+int getSatCount();
 double getSpeed();
 
 #endif

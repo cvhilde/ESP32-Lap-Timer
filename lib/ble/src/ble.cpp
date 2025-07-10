@@ -1,4 +1,5 @@
 #include <ble.h>
+#include <display.h>
 
 BLEServer *pServer = nullptr;
 BLECharacteristic *pTxChar = nullptr;
@@ -8,6 +9,10 @@ static String rxBuf;
 
 bool bleConnected = false;
 bool bleAdvertising = false;
+
+int totalFiles = 0;
+int currentFileNumber = 0;
+bool currentlySending = false;
 
 QueueHandle_t cmdQ;
 enum class TxState {
@@ -117,6 +122,8 @@ void txLine(const String &s) {
 }
 
 static void handleList() {
+totalFiles = 0;
+
     File manifest = SPIFFS.open("/sessions.txt", "r");
     if (!manifest) {
         txLine("LIST,0\nEND\n");
@@ -131,6 +138,8 @@ static void handleList() {
         if (ts.isEmpty()) {
             continue;
         }
+
+        totalFiles += 2;
 
         txLine("/log_" + ts + ".csv\n");
         vTaskDelay(1);
@@ -160,6 +169,9 @@ static void handleGet(const String &raw) {
         return;
     }
 
+    currentFileNumber++;
+    currentlySending = true;
+
     tx.fname = fname;
     tx.size = tx.file.size();
     tx.crc = crc32_file(tx.file);
@@ -183,6 +195,7 @@ static void handleAck(uint32_t seq) {
         txLine("DONE," + tx.fname + "\n");
         tx.file.close();
         tx.st = TxState::IDLE;
+        currentlySending = false;
     }
 }
 
@@ -197,25 +210,18 @@ static void handleResend(uint32_t seq) {
 }
 
 static void handlePurge() {
-    File root = SPIFFS.open("/");
-    File file = root.openNextFile();
-
-    while (file) {
-        String name = file.name();
-        file.close();
-
-        if (name.startsWith("/log_") || name.startsWith("/timestamps_")) {
-            SPIFFS.remove(name);
-        }
-        file = root.openNextFile();
+    displayPurgingMessage();
+    if (SPIFFS.format()) {
+        Serial.println("SPIFFS partition erased");
+        totalFiles = 0;
+        currentFileNumber = 0;
+        currentlySending = false;
+        txLine("PURGED\n");
+    } else {
+        Serial.println("SPIFFS erase failed");
     }
-    root.close();
 
-    File manifest = SPIFFS.open("/sessions.txt", "w");
-    if (manifest) {
-        manifest.close();
-    }
-    txLine("PURGED\n");
+    clearPurgingMessage();
 }
 
 uint32_t sendChunk() {
@@ -287,6 +293,22 @@ void stopAdvertising() {
 
 bool isConnected() {
     return bleConnected;
+}
+
+bool isAdvertising() {
+    return bleAdvertising;
+}
+
+int getFileCount() {
+    return totalFiles;
+}
+
+int getCurrentFileNumber() {
+    return currentFileNumber;
+}
+
+bool isSending() {
+    return currentlySending;
 }
 
 void BLE_loop() {

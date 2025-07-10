@@ -4,7 +4,6 @@
 #include <waypoints.h>
 #include <storage.h>
 #include <ble.h>
-#include "esp_heap_caps.h"
 
 coord activeLocations[2]; // 0 is current, 1 is previous
 wayPoint trackWaypoints[3]; // first is start/finish line, next 2 are the sector waypoints
@@ -40,37 +39,41 @@ unsigned long advFailedLightStart = 0;
 bool advFailLight = false;
 
 static unsigned long continuousLoopTime = 0;
-unsigned long lastStorageSizeDraw = 0;
+unsigned long lastStatusDraw = 0;
+
+int loopFrequency = 100;
+bool isRouteTracking = false;
 
 
 void setup() {
     Serial.begin(115200);
-
     startBlink(250);
 
     initDisplay();
-    firstDraw();
     initStorage();
     initGPS();
     initBLE();
 
     stopBlink();
     startBlink(500);
+    display.clear();
+    permDraws();
 }
 
 void loop() {
     // update gps at 25 hz
     gps.checkUblox();
     BLE_loop();
+
+    if (millis() - lastStatusDraw > 1000) {
+        drawStatusScreen();
+        drawCurrentMode(isRouteTracking);
+        lastStatusDraw = millis();
+    }
     
     // perform rest of loop at 10 hz
-    if (millis() - lastUpdate >= 100) {
+    if (millis() - lastUpdate >= loopFrequency) {
         lastUpdate = millis();
-
-        if (millis() - lastStorageSizeDraw > 1000) {
-            drawStorage(storageUsage());
-            lastStorageSizeDraw = millis();
-        }
 
         if (gps.getFixType() > 1) {
             if (ledFlag) {
@@ -112,6 +115,13 @@ void loop() {
                 } else if (buttonPressDurr >= 6000) {
                     Serial.println("Switching modes");
                     // switch between lap timing and route tracking
+                    if (!isRouteTracking) {
+                        loopFrequency = 200;
+                        isRouteTracking = true;
+                    } else if (isRouteTracking) {
+                        loopFrequency = 100;
+                        isRouteTracking = false;
+                    }
                 }
                 beginButtonLogic = false;
             }
@@ -202,25 +212,13 @@ void loop() {
                     } // end of sector logic
                 }
             } // end of waypoint logic
-            drawLaptime(millis() - lastLapTime, sector1Time, sector2Time, sector3Time, previousLapTime);
-            drawSpeed(getSpeed());
 
         } else {
             if (!ledFlag) {
                 startBlink(500);
                 ledFlag = true;
             }
-            display.setColor(BLACK);
-            display.fillRect(40, 5, 64, 14);
-            display.setColor(WHITE);
-            display.drawString(40, 5, "No Fix");
-            display.display();
         }
-
-        
-
-        // Serial.println(millis() - loopTime);
-        // loopTime = millis();
 
         // this is just for testing the loop running frequency to make sure everything is running properly
         loopCount++;
@@ -229,7 +227,6 @@ void loop() {
             float clockRate = loopCount / 10.0;
             Serial.printf("Loop Frequency: %.2f\n", clockRate);
             loopCount = 0;
-            Serial.printf("Free Heap: %u B\n", heap_caps_get_free_size(MALLOC_CAP_8BIT));
         }
 
     } // end of 10 hz loop

@@ -54,3 +54,9 @@ int getSatCount() {
 double getSpeed() {
     return gps.getGroundSpeed() * 0.00223694;
 }
+
+double getAltitude() {
+    double alt = gps.getAltitude();
+    double sep = gps.getGeoidSeparation();
+    return (alt - sep) / 304.8;
+}

@@ -71,7 +71,7 @@ void loop() {
         lastStatusDraw = millis();
     }
     
-    // perform rest of loop at 10 hz
+    // perform rest of loop at 10 hz or 5 hz
     if (millis() - lastUpdate >= loopFrequency) {
         lastUpdate = millis();
 
@@ -99,14 +99,25 @@ void loop() {
                 if (buttonPressDurr < 3000) {
                     if (!sessionActive) {
                         Serial.println("Beginning session");
-                        turnLEDOn();
-                        startSession();
+                        if (!isRouteTracking) {
+                            turnLEDOn();
+                            startSession();
+                        } else {
+                            // route tracking session start
+                            turnLEDOn();
+                            startRouteSession();
+                        }
                     } else if (sessionActive) {
-                        sessionActive = false;
-                        lapNumber = 0;
-                        turnLEDOff();
-                        endSession();
                         Serial.println("Ending session");
+                        if (!isRouteTracking) {
+                            lapNumber = 0;
+                            turnLEDOff();
+                            endSession();
+                        } else {
+                            turnLEDOff();
+                            endRouteSession();
+                            // route tracking session end
+                        }
                     }
                 } else if (buttonPressDurr >= 3000 && buttonPressDurr < 6000) {
                     Serial.println("Long press detected. Starting BLE advertising");
@@ -170,48 +181,56 @@ void loop() {
 
             // log the data
             if (sessionActive == true) {
-                writeToLogFile(lat, lng, getSpeed());
+                if (!isRouteTracking) {
+                    writeToLogFile(lat, lng, getSpeed());
+                } else if (isRouteTracking) {
+                    // write to route log
+                    writeToRouteLog(lat, lng, getSpeed(), getAltitude());
+                }
             }
 
-            // only check if the waypoint is active (actually there)
-            if (trackWaypoints[currSector].isActive) {
-                // determine if the line was crossed
-                if (doIntersect(activeLocations[1], activeLocations[0], trackWaypoints[currSector])) {
-                    // jitter prevention
-                    if (millis() - lastCrossTime > 5000) {
-                        lastCrossTime = millis();
-                        // 0 is the start/finish line
-                        if (currSector == 0) {
-                            // if its the first lap, dont update any other sector times
-                            if (firstLap) {
-                                lastLapTime = millis();
-                                lastSectorTime = millis();
-                                firstLap = false;
-                            } else if (!firstLap) {
-                                previousLapTime = millis() - lastLapTime;
-                                lastLapTime = millis();
-                                sector3Time = millis() - lastSectorTime;
-                                lastSectorTime = millis();
-                                lapNumber++;
-                                writeToTimeLog(previousLapTime, sector1Time, sector2Time, sector3Time);
+            // disable waypoint crossing if in route tracking mode
+            if (!isRouteTracking) {
+                // only check if the waypoint is active (actually there)
+                if (trackWaypoints[currSector].isActive) {
+                    // determine if the line was crossed
+                    if (doIntersect(activeLocations[1], activeLocations[0], trackWaypoints[currSector])) {
+                        // jitter prevention
+                        if (millis() - lastCrossTime > 5000) {
+                            lastCrossTime = millis();
+                            // 0 is the start/finish line
+                            if (currSector == 0) {
+                                // if its the first lap, dont update any other sector times
+                                if (firstLap) {
+                                    lastLapTime = millis();
+                                    lastSectorTime = millis();
+                                    firstLap = false;
+                                } else if (!firstLap) {
+                                    previousLapTime = millis() - lastLapTime;
+                                    lastLapTime = millis();
+                                    sector3Time = millis() - lastSectorTime;
+                                    lastSectorTime = millis();
+                                    lapNumber++;
+                                    writeToTimeLog(previousLapTime, sector1Time, sector2Time, sector3Time);
+                                }   
+                            } else {
+                                // sector 1 and 2 logic
+                                if (currSector == 1) {
+                                    sector1Time = millis() - lastSectorTime;
+                                    lastSectorTime = millis();
+                                } else if (currSector == 2) {
+                                    sector2Time = millis() - lastSectorTime;
+                                    lastSectorTime = millis();
+                                }
                             }
-                        } else {
-                            // sector 1 and 2 logic
-                            if (currSector == 1) {
-                                sector1Time = millis() - lastSectorTime;
-                                lastSectorTime = millis();
-                            } else if (currSector == 2) {
-                                sector2Time = millis() - lastSectorTime;
-                                lastSectorTime = millis();
+                            currSector++;
+                            if (currSector > 2) {
+                                currSector = 0;
                             }
-                        }
-                        currSector++;
-                        if (currSector > 2) {
-                            currSector = 0;
-                        }
-                    } // end of sector logic
-                }
-            } // end of waypoint logic
+                        } // end of sector logic
+                    }
+                } // end of waypoint logic
+            }
 
         } else {
             if (!ledFlag) {

@@ -14,6 +14,12 @@ int speedSampleIndex = 0;
 Ticker led;
 bool blinkActive = false;
 
+// bool lastMode = false;
+// int lastFixType = 10;
+// int lastSatCount = 50;
+// double lastStorageCount = 100.0;
+
+
 // initializes the display while alos drawing the basic sector times
 void initDisplay() {
     VextON();
@@ -45,17 +51,33 @@ void drawCurrentMode(bool current) {
     char line[5];
     if (!current) {
         sprintf(line, "L");
+        display.setColor(BLACK);
+        display.fillRect(100, 16, 28, 16);
+        display.setColor(WHITE);
+        display.setTextAlignment(TEXT_ALIGN_RIGHT);
+        display.drawString(120, 16, line);
+        display.setTextAlignment(TEXT_ALIGN_LEFT);
+
+        display.drawCircle(116, 24, 8);;
+
+        display.display();
+
     } else {
         sprintf(line, "R");
-    }
 
-    display.setColor(BLACK);
-    display.fillRect(100, 16, 28, 16);
-    display.setColor(WHITE);
-    display.setTextAlignment(TEXT_ALIGN_RIGHT);
-    display.drawString(128, 16, line);
-    display.setTextAlignment(TEXT_ALIGN_LEFT);
-    display.display();
+        display.setColor(BLACK);
+        display.fillRect(100, 16, 28, 16);
+        display.setColor(WHITE);
+
+        display.fillCircle(116, 24, 8);
+        display.setColor(BLACK);
+        display.setTextAlignment(TEXT_ALIGN_RIGHT);
+        display.drawString(121, 16, line);
+        display.setTextAlignment(TEXT_ALIGN_LEFT);
+        display.setColor(WHITE);
+
+        display.display();
+    }
 }
 
 void drawStatusScreen() {

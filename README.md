@@ -22,7 +22,5 @@ ESP32 and once I begin building the app for the IOS and Android, I'll include th
 ## To do list
 - Add a way to upload a json file with waypoints for lap tracking
 - Add LED logic to signal if a session start fails
-- Add a new csv file entry for route tracking with possibly more information and so no timestamp file will be created.
-- Update main loop logic to exclude the execution of waypoint logic when in route tracking mode.
 
 ![screen demo](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNTYzaXUzNzYzajUxbDU1MzN1cmloYzI1cXljNjNwcHM1cnJpcTJzbCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/QZPMouXupVzR3BWeDb/giphy.gif)

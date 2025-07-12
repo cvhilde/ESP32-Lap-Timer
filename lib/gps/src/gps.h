@@ -12,5 +12,6 @@ double getLatitude();
 double getLongitude();
 int getSatCount();
 double getSpeed();
+double getAltitude();
 
 #endif

@@ -122,7 +122,7 @@ void txLine(const String &s) {
 }
 
 static void handleList() {
-totalFiles = 0;
+    totalFiles = 0;
 
     File manifest = SPIFFS.open("/sessions.txt", "r");
     if (!manifest) {
@@ -139,13 +139,21 @@ totalFiles = 0;
             continue;
         }
 
-        totalFiles += 2;
+        if (SPIFFS.exists("/log_" + ts + ".csv")) {
+            txLine("/log_" + ts + ".csv\n");
+            vTaskDelay(1);
+            txLine("/timestamps_" + ts + ".csv\n");
+            vTaskDelay(1);
+            totalFiles += 2;
+        }
 
-        txLine("/log_" + ts + ".csv\n");
-        vTaskDelay(1);
-        txLine("/timestamps_" + ts + ".csv\n");
-        vTaskDelay(1);
+        else if (SPIFFS.exists("/route_" + ts + ".csv")) {
+            txLine("/route_" + ts + ".csv\n");
+            vTaskDelay(1);
+            totalFiles += 1;
+        }
     }
+
     manifest.close();
     txLine("END\n");
 }

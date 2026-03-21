@@ -28,9 +28,9 @@ struct Cmd {
         ACK, 
         RESEND, 
         PURGE,
-        PUTWPT,
-        PUTDATA,
-        PUTDONE
+        PUT_BEGIN,
+        PUT_DATA,
+        PUT_END
     } type;
     String arg;
     uint32_t n = 0;
@@ -38,6 +38,15 @@ struct Cmd {
 
 static std::vector<uint8_t> putBuf;
 static uint32_t putSeq = 0;
+static uint32_t putExpectedSize = 0;
+static uint32_t putExpectedCrc = 0;
+
+static void resetPutState() {
+    putBuf.clear();
+    putSeq = 0;
+    putExpectedSize = 0;
+    putExpectedCrc = 0;
+}
 
 static struct {
     File file;
@@ -59,6 +68,7 @@ class MyServerCB : public BLEServerCallbacks {
     void onDisconnect(BLEServer*) override {
         bleConnected = false;
         tx.st = TxState::IDLE;
+        resetPutState();
         Serial.println("BLE disconnected");
     }
 };
@@ -92,14 +102,19 @@ class MyRxCB : public BLECharacteristicCallbacks {
                 cmd.n = line.substring(7).toInt();
             } else if (line == "PURGE") {
                 cmd.type = Cmd::PURGE;
-            } else if (line == "PUTWPT") {
-                cmd.type = Cmd::PUTWPT;
-            } else if (line.startsWith("PUTDATA,")) {
-                cmd.type = Cmd::PUTDATA;
-                cmd.arg = line.substring(8);
-            } else if (line.startsWith("PUTDONE,")) {
-                cmd.type = Cmd::PUTDONE;
-                cmd.arg = line.substring(8);
+            } else if (line.startsWith("PUT_BEGIN,")) {
+                cmd.type = Cmd::PUT_BEGIN;
+                cmd.arg = line.substring(10);
+            } else if (line.startsWith("PUT_DATA,")) {
+                int comma = line.indexOf(',', 9);
+                if (comma < 0) {
+                    continue;
+                }
+                cmd.type = Cmd::PUT_DATA;
+                cmd.n = line.substring(9, comma).toInt();
+                cmd.arg = line.substring(comma + 1);
+            } else if (line == "PUT_END") {
+                cmd.type = Cmd::PUT_END;
             }
             
             else {
@@ -306,28 +321,69 @@ uint32_t sendChunk() {
     return read;
 }
 
-static void handlePutWpt() {
-    putBuf.clear();
-    putSeq = 0;
+static void handlePutBegin(const String& meta) {
+    int comma = meta.indexOf(',');
+    if (comma < 0) {
+        txLine("ERR,BAD_BEGIN\n");
+        return;
+    }
+
+    uint32_t size = strtoul(meta.substring(0, comma).c_str(), nullptr, 10);
+    uint32_t crc = strtoul(meta.substring(comma + 1).c_str(), nullptr, 16);
+
+    resetPutState();
+    putExpectedSize = size;
+    putExpectedCrc = crc;
+    tx.st = TxState::PUT_RX;
     txLine("READY\n");
 }
 
-static void handlePutData(const String& b64) {
+static void handlePutData(uint32_t seq, const String& b64) {
+    if (tx.st != TxState::PUT_RX) {
+        txLine("ERR,NO_PUT\n");
+        return;
+    }
+
+    if (seq != putSeq) {
+        txLine("RESEND," + String(putSeq) + "\n");
+        return;
+    }
+
     appendBase64Chunk(putBuf, b64);
-    txLine("ACK," + String(++putSeq) + "\n");
+    if (putBuf.size() > putExpectedSize) {
+        resetPutState();
+        tx.st = TxState::IDLE;
+        txLine("ERR,SIZE\n");
+        return;
+    }
+
+    txLine("ACK," + String(seq) + "\n");
+    putSeq++;
 }
 
-static void handlePutDone(const String& crcHex) {
-    uint32_t crcRef = strtoul(crcHex.c_str(), nullptr, 16);
+static void handlePutEnd() {
+    if (tx.st != TxState::PUT_RX) {
+        txLine("ERR,NO_PUT\n");
+        return;
+    }
+
+    if (putBuf.size() != putExpectedSize) {
+        resetPutState();
+        tx.st = TxState::IDLE;
+        txLine("ERR,SIZE\n");
+        return;
+    }
+
     uint32_t crcCalc = esp_rom_crc32_le(0xFFFFFFFF, putBuf.data(), putBuf.size()) ^ 0xFFFFFFFF;
 
-    if (crcCalc == crcRef) {
+    if (crcCalc == putExpectedCrc) {
         writeWaypointsFile(putBuf.data(), putBuf.size());
-        putBuf.clear();
-        putSeq = 0;
-        txLine("OK\n");
+        resetPutState();
+        tx.st = TxState::IDLE;
+        txLine("STORED,/waypoints.json\n");
     } else {
-        putBuf.clear();
+        resetPutState();
+        tx.st = TxState::IDLE;
         txLine("BADCRC\n");
     }
 }
@@ -349,11 +405,11 @@ static void bleWorker(void*) {
                 break;
             case Cmd::PURGE:handlePurge();
                 break;
-            case Cmd::PUTWPT:handlePutWpt();
+            case Cmd::PUT_BEGIN:handlePutBegin(cmd.arg);
                 break;
-            case Cmd::PUTDATA:handlePutData(cmd.arg);
+            case Cmd::PUT_DATA:handlePutData(cmd.n, cmd.arg);
                 break;
-            case Cmd::PUTDONE:handlePutDone(cmd.arg);
+            case Cmd::PUT_END:handlePutEnd();
                 break;
         }
     }

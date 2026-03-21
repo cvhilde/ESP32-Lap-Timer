@@ -19,24 +19,6 @@ void initGPS() {
         activeLocations[i].lat = 0;
         activeLocations[i].lng = 0;
     }
-
-    trackWaypoints[0].p1.lat = 28.613391;
-    trackWaypoints[0].p1.lng = -81.179126;
-    trackWaypoints[0].p2.lat = 28.613467;
-    trackWaypoints[0].p2.lng = -81.179126;
-    trackWaypoints[0].isActive = 1;
-
-    trackWaypoints[1].p1.lat = 28.61392242;
-    trackWaypoints[1].p1.lng = -81.17897079;
-    trackWaypoints[1].p2.lat = 28.61392980;
-    trackWaypoints[1].p2.lng = -81.17906224;
-    trackWaypoints[1].isActive = 1;
-
-    trackWaypoints[2].p1.lat = 28.61364765;
-    trackWaypoints[2].p1.lng = -81.17963668;
-    trackWaypoints[2].p2.lat = 28.61365188;
-    trackWaypoints[2].p2.lng = -81.17954403;
-    trackWaypoints[2].isActive = 1;
 }
 
 double getLatitude() {

@@ -31,27 +31,25 @@ void initStorage() {
     }
 
     if (!loadWaypoints()) {
-        Serial.println("Failed to load waypoints. Creating default file");
-        File file = SPIFFS.open(waypointsFile, "w");
-        file.close();
+        Serial.println("Using hardcoded fallback waypoints");
 
-        storedWaypoints.wp1.p1.lat = 0.0;
-        storedWaypoints.wp1.p1.lng = 0.0;
-        storedWaypoints.wp1.p2.lat = 0.0;
-        storedWaypoints.wp1.p2.lng = 0.0;
-        storedWaypoints.wp1.isActive = 0;
+        trackWaypoints[0].p1.lat = 28.613391;
+        trackWaypoints[0].p1.lng = -81.179126;
+        trackWaypoints[0].p2.lat = 28.613467;
+        trackWaypoints[0].p2.lng = -81.179126;
+        trackWaypoints[0].isActive = 1;
 
-        storedWaypoints.wp2.p1.lat = 0.0;
-        storedWaypoints.wp2.p1.lng = 0.0;
-        storedWaypoints.wp2.p2.lat = 0.0;
-        storedWaypoints.wp2.p2.lng = 0.0;
-        storedWaypoints.wp2.isActive = 0;
+        trackWaypoints[1].p1.lat = 28.61392242;
+        trackWaypoints[1].p1.lng = -81.17897079;
+        trackWaypoints[1].p2.lat = 28.61392980;
+        trackWaypoints[1].p2.lng = -81.17906224;
+        trackWaypoints[1].isActive = 1;
 
-        storedWaypoints.wp3.p1.lat = 0.0;
-        storedWaypoints.wp3.p1.lng = 0.0;
-        storedWaypoints.wp3.p2.lat = 0.0;
-        storedWaypoints.wp3.p2.lng = 0.0;
-        storedWaypoints.wp3.isActive = 0;
+        trackWaypoints[2].p1.lat = 28.61364765;
+        trackWaypoints[2].p1.lng = -81.17963668;
+        trackWaypoints[2].p2.lat = 28.61365188;
+        trackWaypoints[2].p2.lng = -81.17954403;
+        trackWaypoints[2].isActive = 1;
     }
 }
 
@@ -62,31 +60,55 @@ bool loadWaypoints() {
         return false;
     }
 
-    StaticJsonDocument<256> doc;
-    if (deserializeJson(doc, file)) {
-        Serial.println("JSON parse error");
+    DynamicJsonDocument doc(1024);
+    DeserializationError err = deserializeJson(doc, file);
+    file.close();
+
+    if (err) {
+        Serial.printf("JSON parse error: %s\n", err.c_str());
         return false;
     }
 
-    trackWaypoints[0].p1.lat = doc["wp1"][0];
-    trackWaypoints[0].p1.lng = doc["wp1"][1];
-    trackWaypoints[0].p2.lat = doc["wp1"][2];
-    trackWaypoints[0].p2.lng = doc["wp1"][3];
-    trackWaypoints[0].isActive = 1;
+    JsonArray wps = doc["waypoints"].as<JsonArray>();
+    if (wps.isNull()) {
+        Serial.println("Missing 'waypoints' array");
+        return false;
+    }
 
-    trackWaypoints[1].p1.lat = doc["wp2"][0];
-    trackWaypoints[1].p1.lng = doc["wp2"][1];
-    trackWaypoints[1].p2.lat = doc["wp2"][2];
-    trackWaypoints[1].p2.lng = doc["wp2"][3];
-    trackWaypoints[1].isActive = 1;
+    if (wps.size() != 3) {
+        Serial.printf("Expected 3 waypoints, got %u\n", (unsigned)wps.size());
+        return false;
+    }
 
-    trackWaypoints[2].p1.lat = doc["wp3"][0];
-    trackWaypoints[2].p1.lng = doc["wp3"][1];
-    trackWaypoints[2].p2.lat = doc["wp3"][2];
-    trackWaypoints[2].p2.lng = doc["wp3"][3];
-    trackWaypoints[2].isActive = 1;
+    for (int i = 0; i < 3; i++) {
+        JsonObject wp = wps[i];
 
-    Serial.printf("Waypoints loaded: start (%.6f,%.6f)\n", storedWaypoints.wp1.p1.lat, storedWaypoints.wp1.p1.lng);
+        if (!wp["p1"].is<JsonObject>() || !wp["p2"].is<JsonObject>()) {
+            Serial.printf("Waypoint %d missing p1/p2 object\n", i);
+            return false;
+        }
+
+        if (!wp["p1"]["lat"].is<float>() || !wp["p1"]["lng"].is<float>() ||
+            !wp["p2"]["lat"].is<float>() || !wp["p2"]["lng"].is<float>()) {
+            Serial.printf("Waypoint %d has invalid coordinate fields\n", i);
+            return false;
+        }
+
+        trackWaypoints[i].p1.lat = wp["p1"]["lat"].as<double>();
+        trackWaypoints[i].p1.lng = wp["p1"]["lng"].as<double>();
+        trackWaypoints[i].p2.lat = wp["p2"]["lat"].as<double>();
+        trackWaypoints[i].p2.lng = wp["p2"]["lng"].as<double>();
+        trackWaypoints[i].isActive = wp["active"] | 1;
+    }
+
+    Serial.printf(
+        "Waypoints loaded: start (%.6f, %.6f) -> (%.6f, %.6f)\n",
+        trackWaypoints[0].p1.lat,
+        trackWaypoints[0].p1.lng,
+        trackWaypoints[0].p2.lat,
+        trackWaypoints[0].p2.lng
+    );
+
     return true;
 }
 

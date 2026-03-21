@@ -1,9 +1,11 @@
 #include <storage.h>
 #include <FS.h>
+#include <ArduinoJson.h>
 #include <SPIFFS.h>
 #include <globals.h>
 #include <gps.h>
 
+String waypointsFile = "/waypoints.json";
 String currLogFile = "";
 String currTimeLogFile = "";
 
@@ -27,6 +29,72 @@ void initStorage() {
     if (!SPIFFS.begin(true)) {
         Serial.println("SPIFFS mount failed");
     }
+
+    if (!loadWaypoints()) {
+        Serial.println("Failed to load waypoints. Creating default file");
+        File file = SPIFFS.open(waypointsFile, "w");
+        file.close();
+
+        storedWaypoints.wp1.p1.lat = 0.0;
+        storedWaypoints.wp1.p1.lng = 0.0;
+        storedWaypoints.wp1.p2.lat = 0.0;
+        storedWaypoints.wp1.p2.lng = 0.0;
+        storedWaypoints.wp1.isActive = 0;
+
+        storedWaypoints.wp2.p1.lat = 0.0;
+        storedWaypoints.wp2.p1.lng = 0.0;
+        storedWaypoints.wp2.p2.lat = 0.0;
+        storedWaypoints.wp2.p2.lng = 0.0;
+        storedWaypoints.wp2.isActive = 0;
+
+        storedWaypoints.wp3.p1.lat = 0.0;
+        storedWaypoints.wp3.p1.lng = 0.0;
+        storedWaypoints.wp3.p2.lat = 0.0;
+        storedWaypoints.wp3.p2.lng = 0.0;
+        storedWaypoints.wp3.isActive = 0;
+    }
+}
+
+bool loadWaypoints() {
+    File file = SPIFFS.open(waypointsFile, "r");
+    if (!file) {
+        Serial.println("No waypoint file");
+        return false;
+    }
+
+    StaticJsonDocument<256> doc;
+    if (deserializeJson(doc, file)) {
+        Serial.println("JSON parse error");
+        return false;
+    }
+
+    trackWaypoints[0].p1.lat = doc["wp1"][0];
+    trackWaypoints[0].p1.lng = doc["wp1"][1];
+    trackWaypoints[0].p2.lat = doc["wp1"][2];
+    trackWaypoints[0].p2.lng = doc["wp1"][3];
+    trackWaypoints[0].isActive = 1;
+
+    trackWaypoints[1].p1.lat = doc["wp2"][0];
+    trackWaypoints[1].p1.lng = doc["wp2"][1];
+    trackWaypoints[1].p2.lat = doc["wp2"][2];
+    trackWaypoints[1].p2.lng = doc["wp2"][3];
+    trackWaypoints[1].isActive = 1;
+
+    trackWaypoints[2].p1.lat = doc["wp3"][0];
+    trackWaypoints[2].p1.lng = doc["wp3"][1];
+    trackWaypoints[2].p2.lat = doc["wp3"][2];
+    trackWaypoints[2].p2.lng = doc["wp3"][3];
+    trackWaypoints[2].isActive = 1;
+
+    Serial.printf("Waypoints loaded: start (%.6f,%.6f)\n", storedWaypoints.wp1.p1.lat, storedWaypoints.wp1.p1.lng);
+    return true;
+}
+
+void writeWaypointsFile(const uint8_t* raw, size_t len) {
+    File file = SPIFFS.open(waypointsFile, "w");
+    file.write(raw, len);
+    file.close();
+    loadWaypoints();
 }
 
 // starts session by updating the curr Strings, and creating the file

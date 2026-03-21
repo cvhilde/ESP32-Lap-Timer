@@ -192,7 +192,7 @@ void loop() {
             // disable waypoint crossing if in route tracking mode
             if (!isRouteTracking) {
                 // only check if the waypoint is active (actually there)
-                if (trackWaypoints[currSector].isActive) {
+                if (trackWaypoints[currSector].isActive == 1) {
                     // determine if the line was crossed
                     if (doIntersect(activeLocations[1], activeLocations[0], trackWaypoints[currSector])) {
                         // jitter prevention

@@ -12,5 +12,9 @@ double storageUsage();
 void startRouteSession();
 void writeToRouteLog(double lat, double lng, double speed, double altitude);
 void endRouteSession();
+void writeWaypointsFile(const uint8_t* raw, size_t len);
+bool loadWaypoints();
+
+extern String waypointsFile;
 
 #endif

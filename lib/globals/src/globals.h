@@ -21,9 +21,17 @@ typedef struct wayPoint {
     int isActive;
 } wayPoint;
 
+typedef struct waypointCache {
+    wayPoint wp1;
+    wayPoint wp2;
+    wayPoint wp3;
+} waypointCache;
+
+
 extern coord activeLocations[2]; // 0 is current, 1 is previous
 extern wayPoint trackWaypoints[3]; // first is start/finish line, next 2 are the sector waypoints
 extern uint8_t currSector;
+extern waypointCache storedWaypoints;
 
 const float EARTH_RADIUS_FT = 20902230.0f;
 const float DEG_TO_RADIANS = 0.017453292519943295f;

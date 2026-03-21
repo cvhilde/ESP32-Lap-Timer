@@ -21,6 +21,8 @@ void drawStatusScreen();
 void drawCurrentMode(bool current);
 void displayPurgingMessage();
 void clearPurgingMessage();
+void displayGettingMessage();
+void clearGettingMessage();
 
 
 const unsigned char satelliteBitmap[] PROGMEM = {

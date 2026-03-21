@@ -160,6 +160,21 @@ void clearPurgingMessage() {
     display.display();
 }
 
+void displayGettingMessage() {
+    char line[] = "Getting Waypoints";
+    display.setColor(BLACK);
+    display.fillRect(0, 48, 128, 16);
+    display.setColor(WHITE);
+    display.drawString(0, 48, line);
+    display.display();
+}
+
+void clearGettingMessage() {
+    display.setColor(BLACK);
+    display.fillRect(0, 48, 128, 16);
+    display.display();
+}
+
 void IRAM_ATTR onBlink() {
     if (blinkActive) {
         digitalWrite(LED_PIN, !digitalRead(LED_PIN));

@@ -32,7 +32,7 @@ struct Cmd {
         PUT_DATA,
         PUT_END
     } type;
-    String arg;
+    char arg[256] = {0};
     uint32_t n = 0;
 };
 
@@ -46,6 +46,10 @@ static void resetPutState() {
     putSeq = 0;
     putExpectedSize = 0;
     putExpectedCrc = 0;
+}
+
+static void setCmdArg(Cmd& cmd, const String& value) {
+    value.toCharArray(cmd.arg, sizeof(cmd.arg));
 }
 
 static struct {
@@ -88,12 +92,12 @@ class MyRxCB : public BLECharacteristicCallbacks {
             rxBuf.remove(0, nl + 1);
             line.trim();
 
-            Cmd cmd;
+            Cmd cmd = {};
             if (line == "LIST") {
                 cmd.type = Cmd::LIST;
             } else if (line.startsWith("GET,")) {
                 cmd.type = Cmd::GET;
-                cmd.arg = line.substring(4);
+                setCmdArg(cmd, line.substring(4));
             } else if (line.startsWith("ACK,")) {
                 cmd.type = Cmd::ACK;
                 cmd.n = line.substring(4).toInt();
@@ -104,7 +108,7 @@ class MyRxCB : public BLECharacteristicCallbacks {
                 cmd.type = Cmd::PURGE;
             } else if (line.startsWith("PUT_BEGIN,")) {
                 cmd.type = Cmd::PUT_BEGIN;
-                cmd.arg = line.substring(10);
+                setCmdArg(cmd, line.substring(10));
             } else if (line.startsWith("PUT_DATA,")) {
                 int comma = line.indexOf(',', 9);
                 if (comma < 0) {
@@ -112,7 +116,7 @@ class MyRxCB : public BLECharacteristicCallbacks {
                 }
                 cmd.type = Cmd::PUT_DATA;
                 cmd.n = line.substring(9, comma).toInt();
-                cmd.arg = line.substring(comma + 1);
+                setCmdArg(cmd, line.substring(comma + 1));
             } else if (line == "PUT_END") {
                 cmd.type = Cmd::PUT_END;
             }
@@ -336,6 +340,7 @@ static void handlePutBegin(const String& meta) {
     putExpectedCrc = crc;
     tx.st = TxState::PUT_RX;
     txLine("READY\n");
+    displayGettingMessage();
 }
 
 static void handlePutData(uint32_t seq, const String& b64) {
@@ -386,6 +391,8 @@ static void handlePutEnd() {
         tx.st = TxState::IDLE;
         txLine("BADCRC\n");
     }
+
+    clearGettingMessage();
 }
 
 static void bleWorker(void*) {

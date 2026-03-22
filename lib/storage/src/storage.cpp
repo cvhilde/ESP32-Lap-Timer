@@ -149,7 +149,7 @@ void startSession() {
         Serial.println("Failed to create session files");
     }
 
-    logFile.println("Latitude,Longitude,Speed(MPH),Millis");
+    logFile.println("Latitude,Longitude,Speed(MPH),Millis,LapNumber");
     timeFile.println("LapNumber,Laptime,Sector1,Sector2,Sector3");
 
     logFile.close();
@@ -217,7 +217,17 @@ void writeToLogFile(double lat, double lng, double speed) {
     }
 
     char line[kLineMax];
-    int  n = snprintf(line, sizeof(line), "%.7lf,%.7lf,%.2lf,%lu\n", lat, lng, speed, millis() - logTimeBegin);
+    int currentLapNumber = lapNumber + 1;
+    int  n = snprintf(
+        line,
+        sizeof(line),
+        "%.7lf,%.7lf,%.2lf,%lu,%d\n",
+        lat,
+        lng,
+        speed,
+        millis() - logTimeBegin,
+        currentLapNumber
+    );
 
     if (logPos + n > kRamLimit) {
         flushRamToFlash();          // write the 180 kB chunk

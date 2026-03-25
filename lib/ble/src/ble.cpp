@@ -206,12 +206,22 @@ static void handleList() {
             txLine("/timestamps_" + ts + ".csv\n");
             vTaskDelay(1);
             totalFiles += 2;
+            if (SPIFFS.exists("/summary_" + ts + ".csv")) {
+                txLine("/summary_" + ts + ".csv\n");
+                vTaskDelay(1);
+                totalFiles += 1;
+            }
         }
 
         else if (SPIFFS.exists("/route_" + ts + ".csv")) {
             txLine("/route_" + ts + ".csv\n");
             vTaskDelay(1);
             totalFiles += 1;
+            if (SPIFFS.exists("/summary_" + ts + ".csv")) {
+                txLine("/summary_" + ts + ".csv\n");
+                vTaskDelay(1);
+                totalFiles += 1;
+            }
         }
     }
 

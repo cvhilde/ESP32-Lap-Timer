@@ -4,10 +4,12 @@
 #include <SPIFFS.h>
 #include <globals.h>
 #include <gps.h>
+#include <math.h>
 
 String waypointsFile = "/waypoints.json";
 String currLogFile = "";
 String currTimeLogFile = "";
+String currSummaryFile = "";
 
 unsigned long lastLogTime = 0;
 unsigned long bufferWaitTime = 5000;    //5 second buffer
@@ -16,12 +18,73 @@ unsigned long logTimeBegin = 0;
 
 constexpr size_t kRamLimit   = 180 * 1024;  // 180 kB ≈ 18 min @ 10 kB/min
 constexpr size_t kLineMax    = 128; // longest CSV line
+constexpr double kFeetPerMile = 5280.0;
+constexpr double kMinDistanceSegmentFt = 3.0;
+constexpr double kStationarySpeedMph = 1.0;
+constexpr double kStationarySegmentRejectFt = 12.0;
 
 static char   logBuf[kRamLimit];
 static size_t logPos = 0;   // # bytes currently used
+static double sessionDistanceFt = 0.0;
+static double lastDistanceLat = 0.0;
+static double lastDistanceLng = 0.0;
+static bool haveLastDistancePoint = false;
 
 void flushRamToFlash();
 double storageUsage();
+
+static void resetSessionDistance() {
+    sessionDistanceFt = 0.0;
+    lastDistanceLat = 0.0;
+    lastDistanceLng = 0.0;
+    haveLastDistancePoint = false;
+}
+
+static double distanceBetweenFeet(double lat1, double lng1, double lat2, double lng2) {
+    double avgLatRad = ((lat1 + lat2) * 0.5) * DEG_TO_RADIANS;
+    double x = (lng2 - lng1) * DEG_TO_RADIANS * cos(avgLatRad);
+    double y = (lat2 - lat1) * DEG_TO_RADIANS;
+    return sqrt((x * x) + (y * y)) * EARTH_RADIUS_FT;
+}
+
+static void updateSessionDistance(double lat, double lng, double speedMph) {
+    if (!haveLastDistancePoint) {
+        lastDistanceLat = lat;
+        lastDistanceLng = lng;
+        haveLastDistancePoint = true;
+        return;
+    }
+
+    double segmentFt = distanceBetweenFeet(lastDistanceLat, lastDistanceLng, lat, lng);
+    lastDistanceLat = lat;
+    lastDistanceLng = lng;
+
+    if (segmentFt < kMinDistanceSegmentFt) {
+        return;
+    }
+
+    if (speedMph < kStationarySpeedMph && segmentFt < kStationarySegmentRejectFt) {
+        return;
+    }
+
+    sessionDistanceFt += segmentFt;
+}
+
+static void writeSessionSummary(const char* sessionType) {
+    if (currSummaryFile.isEmpty()) {
+        return;
+    }
+
+    File summaryFile = SPIFFS.open(currSummaryFile, FILE_WRITE);
+    if (!summaryFile) {
+        Serial.println("Failed to create session summary file");
+        return;
+    }
+
+    summaryFile.println("SessionType,TotalDistanceFt,TotalDistanceMi");
+    summaryFile.printf("%s,%.2lf,%.5lf\n", sessionType, sessionDistanceFt, sessionDistanceFt / kFeetPerMile);
+    summaryFile.close();
+}
 
 
 void initStorage() {
@@ -140,6 +203,7 @@ void startSession() {
 
     currLogFile = "/log_" + currentTimestamp + ".csv";
     currTimeLogFile = "/timestamps_" + currentTimestamp + ".csv";
+    currSummaryFile = "/summary_" + currentTimestamp + ".csv";
 
     Serial.printf("GNSS NAV-PVT time: %04d-%02d-%02d %02d:%02d:%02d\n", year, month, day, hour, minute, second);
 
@@ -149,7 +213,7 @@ void startSession() {
         Serial.println("Failed to create session files");
     }
 
-    logFile.println("Latitude,Longitude,Speed(MPH),Millis");
+    logFile.println("Latitude,Longitude,Speed(MPH),Millis,LapNumber");
     timeFile.println("LapNumber,Laptime,Sector1,Sector2,Sector3");
 
     logFile.close();
@@ -157,6 +221,7 @@ void startSession() {
 
     logPos = 0;
     logTimeBegin = millis();
+    resetSessionDistance();
 
     File manifest = SPIFFS.open("/sessions.txt", FILE_APPEND);
     if (manifest) {
@@ -186,6 +251,7 @@ void startRouteSession() {
     currentTimestamp = String(timestamp);
 
     currLogFile = "/route_" + currentTimestamp + ".csv";
+    currSummaryFile = "/summary_" + currentTimestamp + ".csv";
     Serial.printf("GNSS NAV-PVT time: %04d-%02d-%02d %02d:%02d:%02d\n", year, month, day, hour, minute, second);
 
     File routeFile = SPIFFS.open(currLogFile, FILE_WRITE);
@@ -198,6 +264,7 @@ void startRouteSession() {
     
     logPos = 0;
     logTimeBegin = millis();
+    resetSessionDistance();
 
     File manifest = SPIFFS.open("/sessions.txt", FILE_APPEND);
     if (manifest) {
@@ -216,8 +283,10 @@ void writeToLogFile(double lat, double lng, double speed) {
         return;
     }
 
+    updateSessionDistance(lat, lng, speed);
+
     char line[kLineMax];
-    int  n = snprintf(line, sizeof(line), "%.7lf,%.7lf,%.2lf,%lu\n", lat, lng, speed, millis() - logTimeBegin);
+    int  n = snprintf(line, sizeof(line), "%.7lf,%.7lf,%.2lf,%lu,%d\n", lat, lng, speed, millis() - logTimeBegin, lapNumber + 1);
 
     if (logPos + n > kRamLimit) {
         flushRamToFlash();          // write the 180 kB chunk
@@ -244,6 +313,8 @@ void writeToRouteLog(double lat, double lng, double speed, double altitude) {
         return;
     }
 
+    updateSessionDistance(lat, lng, speed);
+
     char line[kLineMax];
     int  n = snprintf(line, sizeof(line), "%.7lf,%.7lf,%.2lf,%.2lf,%lu\n", lat, lng, speed, altitude, millis() - logTimeBegin);
 
@@ -258,11 +329,15 @@ void writeToRouteLog(double lat, double lng, double speed, double altitude) {
 
 void endSession() {
     flushRamToFlash();
+    writeSessionSummary("lap");
+    currSummaryFile = "";
     sessionActive = false;
 }
 
 void endRouteSession() {
     flushRamToFlash();
+    writeSessionSummary("route");
+    currSummaryFile = "";
     sessionActive = false;
 }
 
@@ -284,4 +359,8 @@ double storageUsage() {
     size_t used  = SPIFFS.usedBytes();    // how much is already occupied
 
     return (used * 100.0) / total;
+}
+
+double getSessionDistanceFt() {
+    return sessionDistanceFt;
 }

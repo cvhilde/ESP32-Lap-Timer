@@ -286,7 +286,18 @@ void writeToLogFile(double lat, double lng, double speed) {
     updateSessionDistance(lat, lng, speed);
 
     char line[kLineMax];
-    int  n = snprintf(line, sizeof(line), "%.7lf,%.7lf,%.2lf,%lu,%d,%d\n", lat, lng, speed, millis() - logTimeBegin, lapNumber + 1, static_cast<bool>(getAirborneState()));
+    int currentLapNumber = lapNumber + 1;
+    int  n = snprintf(
+        line,
+        sizeof(line),
+        "%.7lf,%.7lf,%.2lf,%lu,%d\n",
+        lat,
+        lng,
+        speed,
+        millis() - logTimeBegin,
+        currentLapNumber,
+        static_cast<bool>(getAirborneState())
+    );
 
     if (logPos + n > kRamLimit) {
         flushRamToFlash();          // write the 180 kB chunk

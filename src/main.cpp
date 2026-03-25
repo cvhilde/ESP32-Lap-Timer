@@ -75,6 +75,13 @@ void loop() {
     if (millis() - lastUpdate >= loopFrequency) {
         lastUpdate = millis();
 
+        bool airborne = getAirborneState();
+        if (airborne) {
+            Serial.println("Airborne");
+        } else if (!airborne) {
+            Serial.println("Grounded");
+        }
+
         if (gps.getFixType() > 1) {
             if (ledFlag) {
                 stopBlink();

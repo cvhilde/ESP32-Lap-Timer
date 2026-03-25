@@ -213,7 +213,7 @@ void startSession() {
         Serial.println("Failed to create session files");
     }
 
-    logFile.println("Latitude,Longitude,Speed(MPH),Millis,LapNumber");
+    logFile.println("Latitude,Longitude,Speed(MPH),Millis,LapNumber,IsAirborne");
     timeFile.println("LapNumber,Laptime,Sector1,Sector2,Sector3");
 
     logFile.close();
@@ -286,7 +286,7 @@ void writeToLogFile(double lat, double lng, double speed) {
     updateSessionDistance(lat, lng, speed);
 
     char line[kLineMax];
-    int  n = snprintf(line, sizeof(line), "%.7lf,%.7lf,%.2lf,%lu,%d\n", lat, lng, speed, millis() - logTimeBegin, lapNumber + 1);
+    int  n = snprintf(line, sizeof(line), "%.7lf,%.7lf,%.2lf,%lu,%d,%d\n", lat, lng, speed, millis() - logTimeBegin, lapNumber + 1, static_cast<bool>(getAirborneState()));
 
     if (logPos + n > kRamLimit) {
         flushRamToFlash();          // write the 180 kB chunk

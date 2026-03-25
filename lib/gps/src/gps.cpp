@@ -20,8 +20,10 @@ void initGPS() {
         activeLocations[i].lng = 0;
     }
 
-    gps.setUART1Output(COM_TYPE_UBX);
-    gps.setAutoESFRAW(true);
+    //bool successOutput = gps.setUART1Output(COM_TYPE_UBX);
+    bool successSet = gps.setAutoESFRAW(true);
+
+    Serial.printf("Set: %d\n", successSet);
 }
 
 double getLatitude() {
@@ -49,14 +51,27 @@ double getAltitude() {
 AirborneData readAirborneState() {
     AirborneData out;
 
+    auto check = gps.packetUBXESFRAW;
+    if (check == nullptr) {
+        Serial.println("Invalid data in UBXESFRAW");
+        return out;
+    }
+
     bool haveX = false, haveY = false, haveZ = false;
     float ax_g = 0.0f, ay_g = 0.0f, az_g = 0.0f;
 
     uint8_t numBlocks = gps.packetUBXESFRAW->data.numEsfRawBlocks;
+    Serial.printf("numBlocks: %d\n", numBlocks);
 
-    for (uint8_t i = 0; i < numBlocks; i++)
+    for (uint8_t i = 0; i < min(numBlocks, (uint8_t)30); i++)
     {
         auto &blk = gps.packetUBXESFRAW->data.data[i];
+
+        Serial.printf("i=%u type=%u raw=0x%08lx sTag=%lu\n",
+                      i,
+                      blk.data.bits.dataType,
+                      (unsigned long)blk.data.all,
+                      (unsigned long)blk.sTag);
 
         uint8_t dataType = blk.data.bits.dataType;
         int32_t raw = blk.data.bits.dataField;

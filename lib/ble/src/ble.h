@@ -24,9 +24,6 @@ bool isAdvertising();
 int getFileCount();
 int getCurrentFileNumber();
 bool isSending();
-bool isPurging();
-
-void BLE_loop();
 uint32_t crc32_file(File &f);
 String base64_encode(const uint8_t *in, size_t len);
 void txLine(const String &s);

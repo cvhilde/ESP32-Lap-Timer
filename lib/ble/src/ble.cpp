@@ -483,7 +483,3 @@ int getCurrentFileNumber() {
 bool isSending() {
     return currentlySending;
 }
-
-void BLE_loop() {
-    
-}

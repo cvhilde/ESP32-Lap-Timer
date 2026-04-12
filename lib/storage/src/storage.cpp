@@ -213,7 +213,7 @@ void startSession() {
         Serial.println("Failed to create session files");
     }
 
-    logFile.println("Latitude,Longitude,Speed(MPH),Millis,LapNumber,IsAirborne");
+    logFile.println("Latitude,Longitude,Speed(MPH),Millis,LapNumber");
     timeFile.println("LapNumber,Laptime,Sector1,Sector2,Sector3");
 
     logFile.close();
@@ -295,8 +295,7 @@ void writeToLogFile(double lat, double lng, double speed) {
         lng,
         speed,
         millis() - logTimeBegin,
-        currentLapNumber,
-        static_cast<bool>(getAirborneState())
+        currentLapNumber
     );
 
     if (logPos + n > kRamLimit) {

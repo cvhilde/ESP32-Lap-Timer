@@ -14,11 +14,6 @@ int speedSampleIndex = 0;
 Ticker led;
 bool blinkActive = false;
 
-// bool lastMode = false;
-// int lastFixType = 10;
-// int lastSatCount = 50;
-// double lastStorageCount = 100.0;
-
 
 // initializes the display while alos drawing the basic sector times
 void initDisplay() {

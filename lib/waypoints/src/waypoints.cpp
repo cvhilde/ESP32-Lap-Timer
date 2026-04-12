@@ -42,25 +42,3 @@ void storeCurrLocation(double lat, double lng) {
     activeLocations[0].lat = lat;
     activeLocations[0].lng = lng;
 }
-
-// distance calculation using the haversine formula
-double distanceCalc(coord p, wayPoint wp) {
-    coord mid = midPoint(wp);
-    float dLat = (mid.lat - p.lat) * DEG_TO_RADIANS;
-    float dLng = (mid.lng - p.lng) * DEG_TO_RADIANS;
-    p.lat *= DEG_TO_RADIANS;
-    mid.lat *= DEG_TO_RADIANS;
-
-    float a = sinf(dLat / 2.0f) * sinf(dLat / 2.0f) + 
-              sinf(dLng / 2.0f) * sinf(dLng / 2.0f) * cosf(p.lat) * cosf(mid.lat);
-    float c = 2.0f * atan2f(sqrtf(a), sqrtf(1.0f - a));
-    return EARTH_RADIUS_FT * c;
-}
-
-// for the distance calculation, so it can use the midpoint
-coord midPoint(wayPoint wp) {
-    coord mid;
-    mid.lat = (wp.p1.lat + wp.p2.lat) / 2.0;
-    mid.lng = (wp.p1.lng + wp.p2.lng) / 2.0;
-    return mid;
-}

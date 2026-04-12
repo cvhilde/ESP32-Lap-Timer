@@ -63,7 +63,6 @@ void setup() {
 void loop() {
     // update gps at 25 hz
     gps.checkUblox();
-    BLE_loop();
 
     if (millis() - lastStatusDraw > 1000) {
         drawStatusScreen();
@@ -74,13 +73,6 @@ void loop() {
     // perform rest of loop at 10 hz or 5 hz
     if (millis() - lastUpdate >= loopFrequency) {
         lastUpdate = millis();
-
-        bool airborne = getAirborneState();
-        if (airborne) {
-            Serial.println("Airborne");
-        } else if (!airborne) {
-            Serial.println("Grounded");
-        }
 
         if (gps.getFixType() > 1) {
             if (ledFlag) {

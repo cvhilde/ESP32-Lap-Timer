@@ -238,15 +238,6 @@ void loop() {
             }
         }
 
-        // this is just for testing the loop running frequency to make sure everything is running properly
-        loopCount++;
-        if (millis() - continuousLoopTime >= 10000) {
-            continuousLoopTime = millis();
-            float clockRate = loopCount / 10.0;
-            Serial.printf("Loop Frequency: %.2f\n", clockRate);
-            loopCount = 0;
-        }
-
     } // end of 10 hz loop
 
 }

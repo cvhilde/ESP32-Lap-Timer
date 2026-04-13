@@ -3,9 +3,11 @@
 
 #include <stdint.h>
 
-namespace GPS {
+namespace GPS
+{
     // Contains all data relating to the date and time
-    struct GPSTimeData {
+    struct GPSTimeData
+    {
         uint16_t year;
         uint8_t month;
         uint8_t day;
@@ -25,7 +27,8 @@ namespace GPS {
         {}
     };
 
-    struct FixData {
+    struct FixData
+    {
         double latitude;  // degrees
         double longitude; // degrees
         double speed;     // mph

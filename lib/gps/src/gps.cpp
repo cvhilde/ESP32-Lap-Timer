@@ -14,7 +14,8 @@
 //----------------------------------------------------------------------------
 // Private declarations
 //----------------------------------------------------------------------------
-namespace {
+namespace
+{
     // Private declaration of the gps object used to interface with the
     // actual gps module.
     SFE_UBLOX_GNSS _gps;
@@ -37,7 +38,8 @@ namespace {
 //----------------------------------------------------------------------------
 // GPS Public namespace
 //----------------------------------------------------------------------------
-namespace GPS {
+namespace GPS
+{
 
     //------------------------------------------------------------------------
     bool InitializeUBLOX()

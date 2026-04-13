@@ -1,78 +1,87 @@
 #ifndef GPS_H
 #define GPS_H
 
-#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
-#include <HardwareSerial.h>
-#include <globals.h>
+#include <stdint.h>
 
-class GPS {
-    public:
-        struct Time {
-            uint16_t year;
-            uint8_t month;
-            uint8_t day;
-            uint8_t hour;
-            uint8_t minute;
-            uint8_t second;
-            bool valid;
+namespace GPS {
+    // Contains all data relating to the date and time
+    struct GPSTimeData {
+        uint16_t year;
+        uint8_t month;
+        uint8_t day;
+        uint8_t hour;   // uses a temporary hardcoded value to EDT
+        uint8_t minute;
+        uint8_t second;
+        bool valid;
 
-            Time() :
-                valid(false)
-            {}
-        };
+        GPSTimeData() :
+            year(0),
+            month(0),
+            day(0),
+            hour(0),
+            minute(0),
+            second(0),
+            valid(false)
+        {}
+    };
 
-        static const double MM_S_TO_MPH;
+    struct FixData {
+        double latitude;  // degrees
+        double longitude; // degrees
+        double speed;     // mph
+        double altitude;  // feet
+        uint8_t fixType;
+        uint8_t satelliteCount;
+        GPSTimeData dateTime;
 
-        static const double MM_TO_FEET;
+        // If false, fixType and satellite count are still valid,
+        // but positional and speed/altitude data are not.
+        bool valid;
 
-        static const double LAT_LONG_TO_DEGREES;
+        FixData() :
+            latitude(0.0),
+            longitude(0.0),
+            speed(0.0),
+            altitude(0.0),
+            fixType(0),
+            satelliteCount(0),
+            dateTime(),
+            valid(false)
+        {}
+    };
 
-        // Initialize the U-BLOX NEO M9N GPS module.
-        static void InitializeGPS();
+    // Multiplication constant for converting from mm/s to mph.
+    constexpr double MM_S_TO_MPH = 0.00223694;
 
-        // Get the latitude returned in degrees.
-        static double Latitude();
+    // Multiplication constant for converting from mm to feet.
+    constexpr double MM_TO_FEET = 0.00328084;
 
-        // Get the longitude returned in degrees.
-        static double Longitude();
+    // Multiplication constant for converting from ublox lat/long
+    // to a normalized value.
+    constexpr double LAT_LONG_TO_DEGREES = 0.0000001;
 
-        // Get the number of satellites in view of the GPS antenna.
-        static int SatelliteCount();
+    // Initialize the U-BLOX NEO M9N GPS module.
+    bool InitializeUBLOX();
 
-        // Get the ground speed measured in MPH.
-        static double Speed();
+    // Grab the latest gps data from the module and cache it.
+    // WARNING: This function performs a blocking action. It will pause until
+    // new data is acquired. So if the frequency is set to 10Hz, and you try
+    // to call this function at a rate of 20Hz, it will still result in a
+    // 10Hz function call rate.
+    void UpdateUBLOX();
 
-        // Get the altitude above sea level measured in feet.
-        static double GPSAltitude();
-
-        // Get the fix type.
-        // 0 - No fix
-        // 1 - Dead reckoning only (not available with NEO-M9N)
-        // 2 - 2D
-        // 3 - 3D
-        // 4 - GNSS + Dead Reckoning combined
-        // 5 - Time only fix
-        // With the NEO-M9N, the best fix type will be 3.
-        static uint8_t FixType();
-
-        // Grab the latest gps data from the module.
-        // WARNING: This function performs a blocking action. It will pause until
-        // new data is acquired. So if the frequency is set to 10Hz, and you try
-        // to call this function at a rate of 20Hz, it will still result in a
-        // 10Hz function call rate.
-        static void UpdateUBLOX();
-
-        // Get the date and time from the GPS, returned with the GPS::Time struct.
-        static Time GPSTime();
-
-    private:
-        // Private declaration of the gps object used to interface with the
-        // actual gps module.
-        static SFE_UBLOX_GNSS _gps;
-
-        // Private declaration of the hardware serial used by the ESP32 to
-        // talk to the gps module.
-        static HardwareSerial _GPSHardwareSerial;
+    // Return the most recently acquired position/speed/altitude data.
+    // This function does not request a new reading from the module.
+    // Call UpdateUBLOX() first to refresh the cached GPS data.
+    // fixType data:
+    // 0 - No fix
+    // 1 - Dead reckoning only (not available with NEO-M9N)
+    // 2 - 2D
+    // 3 - 3D
+    // 4 - GNSS + Dead Reckoning combined
+    // 5 - Time only fix
+    // With the NEO-M9N, the best fix type will be 3.
+    const FixData& GetFixData();
 };
 
 #endif

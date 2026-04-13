@@ -8,87 +8,97 @@
 ///===========================================================================
 
 #include <gps.h>
+#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
+#include <HardwareSerial.h>
 
 //----------------------------------------------------------------------------
-// Forward declarations
+// Private declarations
 //----------------------------------------------------------------------------
-SFE_UBLOX_GNSS GPS::_gps;
-HardwareSerial GPS::_GPSHardwareSerial(1);
+namespace {
+    // Private declaration of the gps object used to interface with the
+    // actual gps module.
+    SFE_UBLOX_GNSS _gps;
 
-const double GPS::MM_S_TO_MPH(0.00223694);
-const double GPS::MM_TO_FEET(0.00328084);
-const double GPS::LAT_LONG_TO_DEGREES(0.0000001);
+    // Private declaration of the hardware serial used by the ESP32 to
+    // talk to the gps module.
+    HardwareSerial _GPSHardwareSerial(1);
+
+    // Cached gps data
+    GPS::FixData _fixData;
+
+    // Physical gps data pins connected to the ESP32.
+    constexpr uint8_t GPS_Rx = 19;
+    constexpr uint8_t GPS_Tx = 20;
+
+    // Initial setup flag. If false, prevent other code from running.
+    bool initialized = false;
+}
 
 //----------------------------------------------------------------------------
-void GPS::InitializeGPS()
-{
-    _GPSHardwareSerial.begin(115200, SERIAL_8N1, GPS_Rx, GPS_Tx);
-    delay(1000);
-    
-    _gps.begin(_GPSHardwareSerial);
-    delay(1000);
+// GPS Public namespace
+//----------------------------------------------------------------------------
+namespace GPS {
 
-    for (int i = 0; i < 2; i++) {
-        activeLocations[i].lat = 0;
-        activeLocations[i].lng = 0;
+    //------------------------------------------------------------------------
+    bool InitializeUBLOX()
+    {    
+        _GPSHardwareSerial.begin(115200, SERIAL_8N1, GPS_Rx, GPS_Tx);
+        delay(1000);
+        
+        initialized = _gps.begin(_GPSHardwareSerial);
+        delay(1000);
+
+        return initialized;
     }
-}
 
-//----------------------------------------------------------------------------
-double GPS::Latitude()
-{
-    return _gps.getLatitude() * LAT_LONG_TO_DEGREES;
-}
+    //------------------------------------------------------------------------
+    void UpdateUBLOX()
+    {
+        _fixData = FixData{};
 
-//----------------------------------------------------------------------------
-double GPS::Longitude()
-{
-    return _gps.getLongitude() * LAT_LONG_TO_DEGREES;
-}
+        if (initialized)
+        {
+            _gps.checkUblox();
 
-//----------------------------------------------------------------------------
-int GPS::SatelliteCount()
-{
-    return _gps.getSIV();
-}
+            uint8_t fix = _gps.getFixType();
 
-//----------------------------------------------------------------------------
-double GPS::Speed()
-{
-    return _gps.getGroundSpeed() * MM_S_TO_MPH;
-}
+            if (fix >= 2 && fix <= 4)
+            {
+                _fixData.latitude  = _gps.getLatitude()    * LAT_LONG_TO_DEGREES;
+                _fixData.longitude = _gps.getLongitude()   * LAT_LONG_TO_DEGREES;
+                _fixData.speed     = _gps.getGroundSpeed() * MM_S_TO_MPH;
+                _fixData.altitude  = _gps.getAltitudeMSL() * MM_TO_FEET;
+                
+                _fixData.dateTime.year   = _gps.getYear();
+                _fixData.dateTime.month  = _gps.getMonth();
+                _fixData.dateTime.day    = _gps.getDay();
+                _fixData.dateTime.hour   = ((_gps.getHour() - 4) + 24) % 24;
+                _fixData.dateTime.minute = _gps.getMinute();
+                _fixData.dateTime.second = _gps.getSecond();
 
-//----------------------------------------------------------------------------
-double GPS::GPSAltitude()
-{
-    return _gps.getAltitudeMSL() * MM_TO_FEET;
-}
+                _fixData.dateTime.valid = true;
+                _fixData.valid          = true;
+            }
+            else if (fix == 5)
+            {
+                _fixData.dateTime.year   = _gps.getYear();
+                _fixData.dateTime.month  = _gps.getMonth();
+                _fixData.dateTime.day    = _gps.getDay();
+                _fixData.dateTime.hour   = ((_gps.getHour() - 4) + 24) % 24;
+                _fixData.dateTime.minute = _gps.getMinute();
+                _fixData.dateTime.second = _gps.getSecond();
 
-//----------------------------------------------------------------------------
-uint8_t GPS::FixType()
-{
-    return _gps.getFixType();
-}
+                _fixData.dateTime.valid = true;
+            }
 
-//----------------------------------------------------------------------------
-void GPS::UpdateUBLOX()
-{
-    _gps.checkUblox();
-}
+            _fixData.fixType        = fix;
+            _fixData.satelliteCount = _gps.getSIV();
+        }
+    }
 
-//----------------------------------------------------------------------------
-GPS::Time GPS::GPSTime()
-{
-    GPS::Time time;
-
-    time.year = _gps.getYear();
-    time.month = _gps.getMonth();
-    time.day = _gps.getDay();
-    time.hour = _gps.getHour() - 4; // timezone difference
-    time.hour = (time.hour + 24) % 24;
-    time.minute = _gps.getMinute();
-    time.second = _gps.getSecond();
-    time.valid = true;
-
-    return time;
+    //------------------------------------------------------------------------
+    const FixData& GetFixData()
+    {
+        return _fixData;
+    }
 }

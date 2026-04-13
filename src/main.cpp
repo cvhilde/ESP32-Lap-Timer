@@ -24,7 +24,6 @@ static unsigned long sector3Time = 0;
 static bool firstLap = true;
 int lapNumber = 0;
 bool ledFlag = true;
-int loopCount = 0;
 double lat = 0.0;
 double lng = 0.0;
 bool currButtonState = false;
@@ -37,8 +36,6 @@ unsigned long advLightStartTime = 0;
 bool advFailLogic = false;
 unsigned long advFailedLightStart = 0;
 bool advFailLight = false;
-
-static unsigned long continuousLoopTime = 0;
 unsigned long lastStatusDraw = 0;
 
 int loopFrequency = 100;
@@ -51,7 +48,7 @@ void setup() {
 
     initDisplay();
     initStorage();
-    initGPS();
+    GPS::InitializeGPS();
     initBLE();
 
     stopBlink();
@@ -62,7 +59,7 @@ void setup() {
 
 void loop() {
     // update gps at 25 hz
-    gps.checkUblox();
+    GPS::UpdateUBLOX();
 
     if (millis() - lastStatusDraw > 1000) {
         drawStatusScreen();
@@ -74,7 +71,7 @@ void loop() {
     if (millis() - lastUpdate >= loopFrequency) {
         lastUpdate = millis();
 
-        if (gps.getFixType() > 1) {
+        if (GPS::FixType() > 1) {
             if (ledFlag) {
                 stopBlink();
                 ledFlag = false;
@@ -174,17 +171,17 @@ void loop() {
             }
 
             // update current location
-            lat = getLatitude();
-            lng = getLongitude();
+            lat = GPS::Latitude();
+            lng = GPS::Longitude();
             storeCurrLocation(lat, lng);
 
             // log the data
             if (sessionActive == true) {
                 if (!isRouteTracking) {
-                    writeToLogFile(lat, lng, getSpeed());
+                    writeToLogFile(lat, lng, GPS::Speed());
                 } else if (isRouteTracking) {
                     // write to route log
-                    writeToRouteLog(lat, lng, getSpeed(), getAltitude());
+                    writeToRouteLog(lat, lng, GPS::Speed(), GPS::GPSAltitude());
                 }
             }
 

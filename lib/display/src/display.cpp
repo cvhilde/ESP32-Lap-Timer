@@ -79,7 +79,7 @@ void drawStatusScreen() {
     char line1[30];
     String gpsStatus = "";
 
-    int fixType = gps.getFixType();
+    int fixType = GPS::FixType();
     if (fixType == 0 || fixType == 1) {
         gpsStatus = "No Fix";
     } else if (fixType == 2) {
@@ -92,7 +92,7 @@ void drawStatusScreen() {
     sprintf(line1, "GPS: %s", gpsStatus.c_str());
 
     char subLine1[10];
-    sprintf(subLine1, "%d", getSatCount());
+    sprintf(subLine1, "%d", GPS::SatelliteCount());
 
     char line2[30];
     sprintf(line2, "Storage: %.2f%%", storageUsage());

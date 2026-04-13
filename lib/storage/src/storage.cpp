@@ -184,96 +184,88 @@ void writeWaypointsFile(const uint8_t* raw, size_t len) {
 
 // starts session by updating the curr Strings, and creating the file
 // prints the csv file header for both, and updates the sessions.txt manifest
-void startSession() {
-    if (sessionActive) {
-        return;
+void startSession()
+{
+    GPS::Time time(GPS::GPSTime());
+
+    if (sessionActive && time.valid)
+    {
+        char timestamp[25];
+        sprintf(timestamp, "%04d%02d%02d_%02d%02d%02d", time.year, time.month, time.day, time.hour, time.minute, time.second);
+        currentTimestamp = String(timestamp);
+
+        currLogFile = "/log_" + currentTimestamp + ".csv";
+        currTimeLogFile = "/timestamps_" + currentTimestamp + ".csv";
+        currSummaryFile = "/summary_" + currentTimestamp + ".csv";
+
+        Serial.printf("GNSS NAV-PVT time: %04d-%02d-%02d %02d:%02d:%02d\n", time.year, time.month, time.day, time.hour, time.minute, time.second);
+
+        File logFile = SPIFFS.open(currLogFile, FILE_WRITE);
+        File timeFile = SPIFFS.open(currTimeLogFile, FILE_WRITE);
+        if (!logFile || !timeFile)
+        {
+            Serial.println("Failed to create session files");
+            return;
+        }
+
+        logFile.println("Latitude,Longitude,Speed(MPH),Millis,LapNumber");
+        timeFile.println("LapNumber,Laptime,Sector1,Sector2,Sector3");
+
+        logFile.close();
+        timeFile.close();
+
+        logPos = 0;
+        logTimeBegin = millis();
+        resetSessionDistance();
+
+        File manifest = SPIFFS.open("/sessions.txt", FILE_APPEND);
+        if (manifest) {
+            manifest.println(currentTimestamp);
+            manifest.close();
+        }
+
+        Serial.println("Sessions started: " + currentTimestamp);
+        sessionActive = true;
     }
-
-    uint16_t year = gps.getYear();
-    uint8_t month = gps.getMonth();
-    uint8_t day = gps.getDay();
-    uint8_t hour = gps.getHour() - 4; // timezone difference
-    hour = (hour + 24) % 24;
-    uint8_t minute = gps.getMinute();
-    uint8_t second = gps.getSecond();
-
-    char timestamp[25];
-    sprintf(timestamp, "%04d%02d%02d_%02d%02d", year, month, day, hour, minute);
-    currentTimestamp = String(timestamp);
-
-    currLogFile = "/log_" + currentTimestamp + ".csv";
-    currTimeLogFile = "/timestamps_" + currentTimestamp + ".csv";
-    currSummaryFile = "/summary_" + currentTimestamp + ".csv";
-
-    Serial.printf("GNSS NAV-PVT time: %04d-%02d-%02d %02d:%02d:%02d\n", year, month, day, hour, minute, second);
-
-    File logFile = SPIFFS.open(currLogFile, FILE_WRITE);
-    File timeFile = SPIFFS.open(currTimeLogFile, FILE_WRITE);
-    if (!logFile || !timeFile) {
-        Serial.println("Failed to create session files");
-    }
-
-    logFile.println("Latitude,Longitude,Speed(MPH),Millis,LapNumber");
-    timeFile.println("LapNumber,Laptime,Sector1,Sector2,Sector3");
-
-    logFile.close();
-    timeFile.close();
-
-    logPos = 0;
-    logTimeBegin = millis();
-    resetSessionDistance();
-
-    File manifest = SPIFFS.open("/sessions.txt", FILE_APPEND);
-    if (manifest) {
-        manifest.println(currentTimestamp);
-        manifest.close();
-    }
-
-    Serial.println("Sessions started: " + currentTimestamp);
-    sessionActive = true;
 }
 
-void startRouteSession() {
-    if (sessionActive) {
-        return;
+void startRouteSession()
+{
+    GPS::Time time(GPS::GPSTime());
+
+    if (sessionActive && time.valid)
+    {
+        char timestamp[25];
+        sprintf(timestamp, "%04d%02d%02d_%02d%02d%02d", time.year, time.month, time.day, time.hour, time.minute, time.second);
+        currentTimestamp = String(timestamp);
+
+        currLogFile = "/route_" + currentTimestamp + ".csv";
+        currSummaryFile = "/summary_" + currentTimestamp + ".csv";
+        Serial.printf("GNSS NAV-PVT time: %04d-%02d-%02d %02d:%02d:%02d\n", time.year, time.month, time.day, time.hour, time.minute, time.second);
+
+        File routeFile = SPIFFS.open(currLogFile, FILE_WRITE);
+        if (!routeFile)
+        {
+            Serial.println("Failed to create route session file");
+            return;
+        }
+
+        routeFile.println("Latitude,Longitude,Speed(MPH),Altitude(Ft),Millis");
+        routeFile.close();
+        
+        logPos = 0;
+        logTimeBegin = millis();
+        resetSessionDistance();
+
+        File manifest = SPIFFS.open("/sessions.txt", FILE_APPEND);
+        if (manifest) {
+            manifest.println(currentTimestamp);
+            manifest.close();
+        }
+
+        Serial.println("Sessions started: " + currentTimestamp);
+        sessionActive = true;
     }
-
-    uint16_t year = gps.getYear();
-    uint8_t month = gps.getMonth();
-    uint8_t day = gps.getDay();
-    uint8_t hour = gps.getHour() - 4; // timezone difference
-    hour = (hour + 24) % 24;
-    uint8_t minute = gps.getMinute();
-    uint8_t second = gps.getSecond();
-
-    char timestamp[25];
-    sprintf(timestamp, "%04d%02d%02d_%02d%02d", year, month, day, hour, minute);
-    currentTimestamp = String(timestamp);
-
-    currLogFile = "/route_" + currentTimestamp + ".csv";
-    currSummaryFile = "/summary_" + currentTimestamp + ".csv";
-    Serial.printf("GNSS NAV-PVT time: %04d-%02d-%02d %02d:%02d:%02d\n", year, month, day, hour, minute, second);
-
-    File routeFile = SPIFFS.open(currLogFile, FILE_WRITE);
-    if (!routeFile) {
-        Serial.println("Failed to create route session file");
-    }
-
-    routeFile.println("Latitude,Longitude,Speed(MPH),Altitude(Ft),Millis");
-    routeFile.close();
-    
-    logPos = 0;
-    logTimeBegin = millis();
-    resetSessionDistance();
-
-    File manifest = SPIFFS.open("/sessions.txt", FILE_APPEND);
-    if (manifest) {
-        manifest.println(currentTimestamp);
-        manifest.close();
-    }
-
-    Serial.println("Sessions started: " + currentTimestamp);
-    sessionActive = true;
 }
 
 // writes incoming updates in a log, and will only flush to the log file

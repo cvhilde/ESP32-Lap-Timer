@@ -24,7 +24,6 @@ static unsigned long sector3Time = 0;
 static bool firstLap = true;
 int lapNumber = 0;
 bool ledFlag = true;
-int loopCount = 0;
 double lat = 0.0;
 double lng = 0.0;
 bool currButtonState = false;
@@ -99,21 +98,23 @@ void loop() {
                     if (!sessionActive) {
                         Serial.println("Beginning session");
                         if (!isRouteTracking) {
-                            turnLEDOn();
+                            startBlink(50, 4950);
                             startSession();
                         } else {
                             // route tracking session start
-                            turnLEDOn();
+                            startBlink(50, 4950);
                             startRouteSession();
                         }
                     } else if (sessionActive) {
                         Serial.println("Ending session");
                         if (!isRouteTracking) {
                             lapNumber = 0;
-                            turnLEDOff();
+                            stopBlink();
+                            startOneShotBlink(100, 1000);
                             endSession();
                         } else {
-                            turnLEDOff();
+                            stopBlink();
+                            startOneShotBlink(100, 1000);
                             endRouteSession();
                             // route tracking session end
                         }
@@ -135,7 +136,6 @@ void loop() {
                 }
                 beginButtonLogic = false;
             }
-
 
             // BLE led status logic
             if (advertising) {

@@ -12,7 +12,11 @@ SSD1306Wire display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED)
 uint16_t speedSamples[20];
 int speedSampleIndex = 0;
 Ticker led;
+Ticker ledOneShotStop;
 bool blinkActive = false;
+bool ledBlinkState = false;
+uint32_t blinkOnDurationMs = 500;
+uint32_t blinkOffDurationMs = 500;
 
 
 // initializes the display while alos drawing the basic sector times
@@ -171,21 +175,48 @@ void clearGettingMessage() {
 }
 
 void IRAM_ATTR onBlink() {
-    if (blinkActive) {
-        digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+    if (!blinkActive) {
+        return;
     }
+
+    ledBlinkState = !ledBlinkState;
+    digitalWrite(LED_PIN, ledBlinkState ? HIGH : LOW);
+
+    uint32_t nextDuration = ledBlinkState ? blinkOnDurationMs : blinkOffDurationMs;
+    led.once_ms(nextDuration, onBlink);
+}
+
+void IRAM_ATTR onOneShotBlinkComplete() {
+    stopBlink();
 }
 
 void startBlink(unsigned long interval) {
-    pinMode(LED_PIN, OUTPUT);
-    blinkActive = true;
+    startBlink(interval, interval);
+}
 
-    led.attach_ms(interval, onBlink);
+void startBlink(unsigned long onDuration, unsigned long offDuration) {
+    pinMode(LED_PIN, OUTPUT);
+    led.detach();
+    ledOneShotStop.detach();
+    blinkActive = true;
+    blinkOnDurationMs = onDuration > 0 ? onDuration : 1;
+    blinkOffDurationMs = offDuration > 0 ? offDuration : 1;
+    ledBlinkState = true;
+    digitalWrite(LED_PIN, HIGH);
+
+    led.once_ms(blinkOnDurationMs, onBlink);
+}
+
+void startOneShotBlink(unsigned long interval, unsigned long duration) {
+    startBlink(interval, interval);
+    ledOneShotStop.once_ms(duration > 0 ? duration : 1, onOneShotBlinkComplete);
 }
 
 void stopBlink() {
     blinkActive = false;
     led.detach();
+    ledOneShotStop.detach();
+    ledBlinkState = false;
     digitalWrite(LED_PIN, LOW);
 }
 

@@ -14,6 +14,8 @@ void initDisplay();
 void permDraws();
 void VextON();
 void startBlink(unsigned long interval);
+void startBlink(unsigned long onDuration, unsigned long offDuration);
+void startOneShotBlink(unsigned long interval, unsigned long duration);
 void stopBlink();
 void turnLEDOn();
 void turnLEDOff();

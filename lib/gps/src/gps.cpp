@@ -19,11 +19,6 @@ void initGPS() {
         activeLocations[i].lat = 0;
         activeLocations[i].lng = 0;
     }
-
-    //bool successOutput = gps.setUART1Output(COM_TYPE_UBX);
-    bool successSet = gps.setAutoESFRAW(true);
-
-    Serial.printf("Set: %d\n", successSet);
 }
 
 double getLatitude() {

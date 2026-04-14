@@ -1,5 +1,7 @@
 ///===========================================================================
 ///
+/// gps.cpp
+///
 /// This file is specifically for interfacing with the U-BLOX NEO M9N GPS
 /// module and all related logic to it. This is the only file that should be
 /// directly calling functions from the gps declaration. Any other file that
@@ -12,7 +14,7 @@
 #include <HardwareSerial.h>
 
 //----------------------------------------------------------------------------
-// Private declarations
+// Private namespace
 //----------------------------------------------------------------------------
 namespace
 {

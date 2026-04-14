@@ -27,7 +27,6 @@ bool isSending();
 uint32_t crc32_file(File &f);
 String base64_encode(const uint8_t *in, size_t len);
 void txLine(const String &s);
-uint32_t sendChunk();
 
 extern bool bleConnected;
 extern bool bleAdvertising;

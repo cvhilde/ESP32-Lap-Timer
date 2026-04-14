@@ -40,13 +40,6 @@ static void resetSessionDistance() {
     haveLastDistancePoint = false;
 }
 
-static double distanceBetweenFeet(double lat1, double lng1, double lat2, double lng2) {
-    double avgLatRad = ((lat1 + lat2) * 0.5) * DEG_TO_RADIANS;
-    double x = (lng2 - lng1) * DEG_TO_RADIANS * cos(avgLatRad);
-    double y = (lat2 - lat1) * DEG_TO_RADIANS;
-    return sqrt((x * x) + (y * y)) * EARTH_RADIUS_FT;
-}
-
 static void updateSessionDistance(double lat, double lng, double speedMph) {
     if (!haveLastDistancePoint) {
         lastDistanceLat = lat;
@@ -186,7 +179,7 @@ void writeWaypointsFile(const uint8_t* raw, size_t len) {
 // prints the csv file header for both, and updates the sessions.txt manifest
 void startSession()
 {
-    GPS::Time time(GPS::GPSTime());
+    GPS::GPSTimeData time(GPS::GPSTime());
 
     if (sessionActive && time.valid)
     {
@@ -231,7 +224,7 @@ void startSession()
 
 void startRouteSession()
 {
-    GPS::Time time(GPS::GPSTime());
+    GPS::GPSTimeData time(GPS::GPSTime());
 
     if (sessionActive && time.valid)
     {

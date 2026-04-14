@@ -48,7 +48,7 @@ void setup() {
 
     initDisplay();
     initStorage();
-    GPS::InitializeGPS();
+    GPS::InitializeUBLOX();
     initBLE();
 
     stopBlink();

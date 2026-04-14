@@ -3,7 +3,6 @@
 #include <Wire.h>
 #include <globals.h>
 #include <gps.h>
-#include <Ticker.h>
 #include <ble.h>
 #include <storage.h>
 #include <BLEDevice.h>
@@ -11,9 +10,6 @@
 SSD1306Wire display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
 uint16_t speedSamples[20];
 int speedSampleIndex = 0;
-Ticker led;
-bool blinkActive = false;
-
 
 // initializes the display while alos drawing the basic sector times
 void initDisplay() {
@@ -168,31 +164,4 @@ void clearGettingMessage() {
     display.setColor(BLACK);
     display.fillRect(0, 48, 128, 16);
     display.display();
-}
-
-void IRAM_ATTR onBlink() {
-    if (blinkActive) {
-        digitalWrite(LED_PIN, !digitalRead(LED_PIN));
-    }
-}
-
-void startBlink(unsigned long interval) {
-    pinMode(LED_PIN, OUTPUT);
-    blinkActive = true;
-
-    led.attach_ms(interval, onBlink);
-}
-
-void stopBlink() {
-    blinkActive = false;
-    led.detach();
-    digitalWrite(LED_PIN, LOW);
-}
-
-void turnLEDOn() {
-    digitalWrite(LED_PIN, HIGH);
-}
-
-void turnLEDOff() {
-    digitalWrite(LED_PIN, LOW);
 }

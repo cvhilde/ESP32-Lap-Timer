@@ -1,30 +1,102 @@
+///===========================================================================
+///
+/// display.cpp
+///
+/// TODO: Implement file description
+///
+///===========================================================================
+
 #include <display.h>
 #include "HT_SSD1306Wire.h"
 #include <Wire.h>
-#include <globals.h>
-#include <gps.h>
-#include <ble.h>
-#include <storage.h>
-#include <BLEDevice.h>
 
-SSD1306Wire display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
-uint16_t speedSamples[20];
-int speedSampleIndex = 0;
+//----------------------------------------------------------------------------
+// Private namespace
+//----------------------------------------------------------------------------
+namespace
+{
+    SSD1306Wire _display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
 
-// initializes the display while alos drawing the basic sector times
-void initDisplay() {
-    VextON();
-    delay(100);
-    pinMode(ADC_CTRL, OUTPUT);
-    digitalWrite(ADC_CTRL, LOW);
-    analogReadResolution(12);
-    display.init();
-    display.setFont(Roboto_Light_14);
-    display.drawString(34, 4, "Lap Timer");
-    display.drawString(58, 30, "By");
-    display.drawString(7, 48, "Carter Hildebrandt");
-    display.display();
-    delay(5000);
+    constexpr unsigned ADC_CTRL = 37;
+
+    //------------------------------------------------------------------------
+    // initializes the display while alos drawing the basic sector times
+    void initDisplay()
+    {
+        VextON();
+        delay(100);
+        pinMode(ADC_CTRL, OUTPUT);
+        digitalWrite(ADC_CTRL, LOW);
+        analogReadResolution(12);
+        display.init();
+        display.setFont(Display::Roboto_Light_14);
+        display.drawString(34, 4, "Lap Timer");
+        display.drawString(58, 30, "By");
+        display.drawString(7, 48, "Carter Hildebrandt");
+        display.display();
+        delay(5000);
+    }
+
+    //------------------------------------------------------------------------
+    // give power to the display
+    void VextON()
+    {
+        pinMode(Vext,OUTPUT);
+        digitalWrite(Vext, LOW);
+    }
+
+    //------------------------------------------------------------------------
+    // Draw the permenant strings on the display
+    void permDraws()
+    {
+        display.drawXbm(120, 4, 8, 8, Display::satelliteBitmap);
+        display.display();
+    }
+}
+
+namespace Display
+{
+    //------------------------------------------------------------------------
+	bool InitializeDisplay()
+    {
+
+    }
+
+    //------------------------------------------------------------------------
+	void DrawStatusScreen(const GPS::FixData& data)
+    {
+
+    }
+
+    //------------------------------------------------------------------------
+	void DrawCurrentMode(bool mode)
+    {
+
+    }
+
+    //------------------------------------------------------------------------
+	void DisplayPurgingMessage()
+    {
+
+    }
+
+    //------------------------------------------------------------------------
+	void ClearPurgingMessage()
+    {
+
+    }
+
+    //------------------------------------------------------------------------
+	void DisplayGettingMessage()
+    {
+
+    }
+
+    //------------------------------------------------------------------------
+	void ClearGettingMessage()
+    {
+
+    }
 }
 
 // give power to the display
@@ -34,7 +106,7 @@ void VextON() {
 }
 
 void permDraws() {
-    display.drawXbm(120, 4, 8, 8, satelliteBitmap);
+    display.drawXbm(120, 4, 8, 8, Display::satelliteBitmap);
     display.display();
 }
 

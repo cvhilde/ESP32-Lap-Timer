@@ -33,6 +33,23 @@ static bool haveLastDistancePoint = false;
 void flushRamToFlash();
 double storageUsage();
 
+namespace
+{
+    void StartSession();
+
+    void WriteToLogFile(double lat, double lng, double speed);
+
+    void WriteToTimeLog(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3);
+
+    void EndSession();
+
+    void StartRouteSession();
+
+    void WriteToRouteLog(double lat, double lng, double speed, double altitude);
+
+    void EndRouteSession();
+}
+
 static void resetSessionDistance() {
     sessionDistanceFt = 0.0;
     lastDistanceLat = 0.0;

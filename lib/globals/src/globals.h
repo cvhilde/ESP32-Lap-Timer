@@ -3,8 +3,6 @@
 
 #include <Arduino.h>
 
-#define VBAT_Read 1
-#define BUTTON_PIN 46
 
 typedef struct coord {
     double lat;

@@ -1,20 +1,22 @@
 #ifndef STORAGE_H
 #define STORAGE_H
 
-#include <Arduino.h>
+#include <button.h>
 
-void startSession();
-void initStorage();
-void writeToLogFile(double lat, double lng, double speed);
-void writeToTimeLog(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3);
-void endSession();
-double storageUsage();
-void startRouteSession();
-void writeToRouteLog(double lat, double lng, double speed, double altitude);
-void endRouteSession();
-void writeWaypointsFile(const uint8_t* raw, size_t len);
-bool loadWaypoints();
-double getSessionDistanceFt();
+namespace Storage
+{
+    bool InitializeStorage();
+
+    void UpdateLapTiming(const GPS::FixData& data, Button::ButtonAction& action);
+
+    void UpdateRouteTracking(const GPS::FixData& data, Button::ButtonAction& action);
+
+    void WriteWaypointsFile(const uint8_t* raw, size_t len);
+
+    bool LoadWaypoints();
+};
+
+#include <Arduino.h>
 
 extern String waypointsFile;
 

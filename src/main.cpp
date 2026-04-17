@@ -4,6 +4,8 @@
 #include <waypoints.h>
 #include <storage.h>
 #include <ble.h>
+#include <button.h>
+#include <led.h>
 
 coord activeLocations[2]; // 0 is current, 1 is previous
 wayPoint trackWaypoints[3]; // first is start/finish line, next 2 are the sector waypoints
@@ -77,18 +79,7 @@ void loop() {
                 ledFlag = false;
             }
 
-            // button logic for counting button press duration
-            currButtonState = digitalRead(BUTTON_PIN);
-            if (prevButtonState == HIGH && currButtonState == LOW) {
-                startButtonPressDurr = millis();
-            }
-
-            // once released, tally total and update begin variable
-            if (prevButtonState == LOW && currButtonState == HIGH) {
-                buttonPressDurr = millis() - startButtonPressDurr;
-                beginButtonLogic = true;
-            }
-            prevButtonState = currButtonState;
+            const Button::Mode& mode(Button::PollButtonAction());
 
             // once released, determine what button logic to procede with
             if (beginButtonLogic) {

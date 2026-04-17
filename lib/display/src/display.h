@@ -10,7 +10,7 @@ namespace Display
 
 	void DrawStatusScreen(const GPS::FixData& data);
 
-	void DrawCurrentMode(bool mode);
+	void DrawCurrentMode(Mode_t mode);
 
 	void DisplayPurgingMessage();
 
@@ -19,6 +19,12 @@ namespace Display
 	void DisplayGettingMessage();
 
 	void ClearGettingMessage();
+
+	enum Mode_t
+	{
+		ROUTE_TRACKING,
+		LAP_TIMING
+	};
 
 	const unsigned char satelliteBitmap[] PROGMEM = {
 		0b00110000,

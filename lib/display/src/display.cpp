@@ -2,7 +2,8 @@
 ///
 /// display.cpp
 ///
-/// TODO: Implement file description
+/// Implements OLED display initialization and runtime status display logic.
+/// This should be the only file that interacts with the ESP32 display.
 ///
 ///===========================================================================
 
@@ -15,10 +16,15 @@
 //----------------------------------------------------------------------------
 namespace
 {
+    // Private declaration of the display object used to interface with the
+    // actual onboard OLED display.
     SSD1306Wire _display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
 
+    // Pin for the display power.
     constexpr unsigned ADC_CTRL = 37;
 
+    // Initial setup flag.
+    bool initialized = false;
 
     //------------------------------------------------------------------------
     // give power to the display
@@ -40,7 +46,6 @@ namespace
 namespace Display
 {
     //------------------------------------------------------------------------
-    // initializes the display while alos drawing the basic sector times
     bool InitializeDisplay()
     {
         VextON();
@@ -48,13 +53,19 @@ namespace Display
         pinMode(ADC_CTRL, OUTPUT);
         digitalWrite(ADC_CTRL, LOW);
         analogReadResolution(12);
-        _display.init();
-        _display.setFont(Display::Roboto_Light_14);
-        _display.drawString(34, 4, "Lap Timer");
-        _display.drawString(58, 30, "By");
-        _display.drawString(7, 48, "Carter Hildebrandt");
-        _display.display();
-        delay(5000);
+        initialized = _display.init();
+
+        if (initialized)
+        {
+            _display.setFont(Display::Roboto_Light_14);
+            _display.drawString(34, 4, "Lap Timer");
+            _display.drawString(58, 30, "By");
+            _display.drawString(7, 48, "Carter Hildebrandt");
+            _display.display();
+            delay(5000);
+        }
+
+        return initialized;
     }
 
     //------------------------------------------------------------------------

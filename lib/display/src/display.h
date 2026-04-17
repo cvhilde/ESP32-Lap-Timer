@@ -6,26 +6,39 @@
 
 namespace Display
 {
+    // Initializes the display while also drawing the basic sector times.
+	// Returns a boolean for whether or no the display was properly initialized.
 	bool InitializeDisplay();
 
+	// Draws the status screen based.
 	void DrawStatusScreen(const GPS::FixData& data);
 
+	// Draws the current mode (lap timing, or route tracking).
 	void DrawCurrentMode(Mode_t mode);
 
+	// During purging of the flash, this will draw the "Purging Flash" message.
+	// This will not clear the message when purging is complete.
 	void DisplayPurgingMessage();
 
+	// Clears the "Purging Flash" message.
 	void ClearPurgingMessage();
 
+	// When getting a new Waypoints file from BLE, this should be called to
+	// display the "Getting Waypoints" message. This will not clear the message
+	// when getting the file is complete.
 	void DisplayGettingMessage();
 
+	// Clears the "Getting Waypoints" message.
 	void ClearGettingMessage();
 
+	// Enum for the differemt modes of the ESP32 tracker
 	enum Mode_t
 	{
 		ROUTE_TRACKING,
 		LAP_TIMING
 	};
 
+	// Bit map for the satellite symbol drawn next to the number of satellites in view
 	const unsigned char satelliteBitmap[] PROGMEM = {
 		0b00110000,
 		0b01111000,
@@ -37,6 +50,7 @@ namespace Display
 		0b00001100
 	};
 
+	// Custom font used for all text
 	const uint8_t Roboto_Light_14[] PROGMEM = {
 		0x0D, // Width: 13
 		0x11, // Height: 17

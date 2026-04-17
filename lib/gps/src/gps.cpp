@@ -33,7 +33,7 @@ namespace
     constexpr uint8_t GPS_Rx = 19;
     constexpr uint8_t GPS_Tx = 20;
 
-    // Initial setup flag. If false, prevent other code from running.
+    // Initial setup flag.
     bool initialized = false;
 }
 
@@ -60,44 +60,41 @@ namespace GPS
     {
         _fixData = FixData{};
 
-        if (initialized)
+        _gps.checkUblox();
+
+        uint8_t fix = _gps.getFixType();
+
+        if (fix >= 2 && fix <= 4)
         {
-            _gps.checkUblox();
+            _fixData.latitude  = _gps.getLatitude()    * LAT_LONG_TO_DEGREES;
+            _fixData.longitude = _gps.getLongitude()   * LAT_LONG_TO_DEGREES;
+            _fixData.speed     = _gps.getGroundSpeed() * MM_S_TO_MPH;
+            _fixData.altitude  = _gps.getAltitudeMSL() * MM_TO_FEET;
+            
+            _fixData.dateTime.year   = _gps.getYear();
+            _fixData.dateTime.month  = _gps.getMonth();
+            _fixData.dateTime.day    = _gps.getDay();
+            _fixData.dateTime.hour   = ((_gps.getHour() - 4) + 24) % 24;
+            _fixData.dateTime.minute = _gps.getMinute();
+            _fixData.dateTime.second = _gps.getSecond();
 
-            uint8_t fix = _gps.getFixType();
-
-            if (fix >= 2 && fix <= 4)
-            {
-                _fixData.latitude  = _gps.getLatitude()    * LAT_LONG_TO_DEGREES;
-                _fixData.longitude = _gps.getLongitude()   * LAT_LONG_TO_DEGREES;
-                _fixData.speed     = _gps.getGroundSpeed() * MM_S_TO_MPH;
-                _fixData.altitude  = _gps.getAltitudeMSL() * MM_TO_FEET;
-                
-                _fixData.dateTime.year   = _gps.getYear();
-                _fixData.dateTime.month  = _gps.getMonth();
-                _fixData.dateTime.day    = _gps.getDay();
-                _fixData.dateTime.hour   = ((_gps.getHour() - 4) + 24) % 24;
-                _fixData.dateTime.minute = _gps.getMinute();
-                _fixData.dateTime.second = _gps.getSecond();
-
-                _fixData.dateTime.valid = true;
-                _fixData.valid          = true;
-            }
-            else if (fix == 5)
-            {
-                _fixData.dateTime.year   = _gps.getYear();
-                _fixData.dateTime.month  = _gps.getMonth();
-                _fixData.dateTime.day    = _gps.getDay();
-                _fixData.dateTime.hour   = ((_gps.getHour() - 4) + 24) % 24;
-                _fixData.dateTime.minute = _gps.getMinute();
-                _fixData.dateTime.second = _gps.getSecond();
-
-                _fixData.dateTime.valid = true;
-            }
-
-            _fixData.fixType        = fix;
-            _fixData.satelliteCount = _gps.getSIV();
+            _fixData.dateTime.valid = true;
+            _fixData.valid          = true;
         }
+        else if (fix == 5)
+        {
+            _fixData.dateTime.year   = _gps.getYear();
+            _fixData.dateTime.month  = _gps.getMonth();
+            _fixData.dateTime.day    = _gps.getDay();
+            _fixData.dateTime.hour   = ((_gps.getHour() - 4) + 24) % 24;
+            _fixData.dateTime.minute = _gps.getMinute();
+            _fixData.dateTime.second = _gps.getSecond();
+
+            _fixData.dateTime.valid = true;
+        }
+
+        _fixData.fixType        = fix;
+        _fixData.satelliteCount = _gps.getSIV();
     }
 
     //------------------------------------------------------------------------

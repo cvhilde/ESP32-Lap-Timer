@@ -10,6 +10,7 @@
 #include <display.h>
 #include "HT_SSD1306Wire.h"
 #include <Wire.h>
+#include <storage.h>
 
 //----------------------------------------------------------------------------
 // Private namespace
@@ -90,7 +91,7 @@ namespace Display
         sprintf(subLine1, "%d", data.satelliteCount);
 
         char line2[30];
-        sprintf(line2, "Storage: %.2f%%", storageUsage());
+        sprintf(line2, "Storage: %.2f%%", Storage::Usage());
 
         char line3[30];
         String bleStatus = "";

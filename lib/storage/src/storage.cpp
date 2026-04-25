@@ -11,43 +11,73 @@ String currLogFile = "";
 String currTimeLogFile = "";
 String currSummaryFile = "";
 
-unsigned long lastLogTime = 0;
-unsigned long bufferWaitTime = 5000;    //5 second buffer
-String logBuffer;
-unsigned long logTimeBegin = 0;
-
-constexpr size_t kRamLimit   = 180 * 1024;  // 180 kB ≈ 18 min @ 10 kB/min
-constexpr size_t kLineMax    = 128; // longest CSV line
 constexpr double kFeetPerMile = 5280.0;
 constexpr double kMinDistanceSegmentFt = 3.0;
 constexpr double kStationarySpeedMph = 1.0;
 constexpr double kStationarySegmentRejectFt = 12.0;
 
-static char   logBuf[kRamLimit];
-static size_t logPos = 0;   // # bytes currently used
 static double sessionDistanceFt = 0.0;
 static double lastDistanceLat = 0.0;
 static double lastDistanceLng = 0.0;
 static bool haveLastDistancePoint = false;
 
 void flushRamToFlash();
-double storageUsage();
 
 namespace
 {
-    void StartSession();
+    void StartSession(const GPS::FixData& data);
 
-    void WriteToLogFile(double lat, double lng, double speed);
+    void WriteToLogFile(const GPS::FixData& data);
 
     void WriteToTimeLog(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3);
 
     void EndSession();
 
-    void StartRouteSession();
+    void StartRouteSession(const GPS::FixData& data);
 
-    void WriteToRouteLog(double lat, double lng, double speed, double altitude);
+    void WriteToRouteLog(const GPS::FixData& data);
 
     void EndRouteSession();
+
+    // 180 kB = 18 min @ 10 kB/min
+    constexpr size_t RAM_LIMIT = 180 * 1024;
+
+    // longest CSV line
+    constexpr size_t CSV_LINE_MAX = 128;
+
+    struct Data
+    {
+        char logBuffer[RAM_LIMIT];
+
+        // number of bytes currently used
+        size_t logPosition;
+
+        unsigned long logTimeBegin;
+
+        Data() :
+            logBuffer{0},
+            logPosition(0),
+            logTimeBegin(0)
+        {}
+    };
+
+    Data _data;
+}
+
+namespace Storage
+{
+    bool Initialize()
+    {
+        bool initialized(true);
+
+        initialized = initialized && SPIFFS.begin(true);
+
+        initialized = initialized && LoadWaypoints();
+
+        return initialized;
+    }
+
+
 }
 
 static void resetSessionDistance() {
@@ -98,7 +128,6 @@ static void writeSessionSummary(const char* sessionType) {
 
 
 void initStorage() {
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
     if (!SPIFFS.begin(true)) {
         Serial.println("SPIFFS mount failed");
     }
@@ -366,7 +395,8 @@ void flushRamToFlash() {
     logPos = 0;
 }
 
-double storageUsage() {
+double Usage()
+{
     size_t total = SPIFFS.totalBytes();   // size of the SPIFFS partition
     size_t used  = SPIFFS.usedBytes();    // how much is already occupied
 

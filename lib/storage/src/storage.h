@@ -5,15 +5,15 @@
 
 namespace Storage
 {
-    bool InitializeStorage();
+    bool Initialize();
 
-    void UpdateLapTiming(const GPS::FixData& data, Button::ButtonAction& action);
-
-    void UpdateRouteTracking(const GPS::FixData& data, Button::ButtonAction& action);
+    void UpdateLogging(const GPS::FixData& data, Button::Mode& action);
 
     void WriteWaypointsFile(const uint8_t* raw, size_t len);
 
     bool LoadWaypoints();
+
+    double Usage();
 };
 
 #include <Arduino.h>

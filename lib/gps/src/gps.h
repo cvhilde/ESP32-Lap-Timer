@@ -2,6 +2,7 @@
 #define GPS_H
 
 #include <stdint.h>
+#include <waypoints.h>
 
 namespace GPS
 {
@@ -29,8 +30,7 @@ namespace GPS
 
     struct FixData
     {
-        double latitude;  // degrees
-        double longitude; // degrees
+        WayPoints::Coord coord;
         double speed;     // mph
         double altitude;  // feet
         uint8_t fixType;
@@ -42,8 +42,6 @@ namespace GPS
         bool valid;
 
         FixData() :
-            latitude(0.0),
-            longitude(0.0),
             speed(0.0),
             altitude(0.0),
             fixType(0),

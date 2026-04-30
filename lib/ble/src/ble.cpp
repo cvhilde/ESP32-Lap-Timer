@@ -1,47 +1,48 @@
 #include <ble.h>
 #include <display.h>
 #include <cstring>
+#include <Arduino.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+#include <SPIFFS.h>
+#include <esp_rom_crc.h>
+#include <freertos/queue.h>
+#include <vector>
+#include <storage.h>
 
-BLEServer *pServer = nullptr;
-BLECharacteristic *pTxChar = nullptr;
+namespace
+{
+    #define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+    #define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+    #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
-static const char b64tbl[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-static String rxBuf;
+    static const char b64tbl[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-constexpr size_t kCmdArgSize = 256;
-constexpr uint16_t kDesiredBleMtu = 247;
-constexpr uint16_t kDefaultPeerMtu = 23;
-constexpr size_t kLegacyRawChunkSize = 180;
-constexpr uint8_t kBinaryFrameMarker = 0xA5;
-constexpr uint8_t kBinaryFrameTypeData = 0x01;
-constexpr uint8_t kBinaryFrameTypePutData = 0x02;
-constexpr size_t kBinaryFrameHeaderSize = 8;
-constexpr uint32_t kLegacyTxWindow = 4;
-constexpr uint32_t kFastTxWindow = 8;
-constexpr uint32_t kFastPutAckInterval = 4;
+    constexpr size_t kCmdArgSize = 256;
+    constexpr uint16_t kDesiredBleMtu = 247;
+    constexpr uint16_t kDefaultPeerMtu = 23;
+    constexpr size_t kLegacyRawChunkSize = 180;
+    constexpr uint8_t kBinaryFrameMarker = 0xA5;
+    constexpr uint8_t kBinaryFrameTypeData = 0x01;
+    constexpr uint8_t kBinaryFrameTypePutData = 0x02;
+    constexpr size_t kBinaryFrameHeaderSize = 8;
+    constexpr uint32_t kLegacyTxWindow = 4;
+    constexpr uint32_t kFastTxWindow = 8;
+    constexpr uint32_t kFastPutAckInterval = 4;
 
-bool bleConnected = false;
-bool bleAdvertising = false;
+    enum TxState {
+        IDLE,
+        SENDING,
+        PUT_RX
+    };
 
-int totalFiles = 0;
-int currentFileNumber = 0;
-bool currentlySending = false;
-static uint16_t bleConnId = 0;
-static uint16_t blePeerMtu = kDefaultPeerMtu;
+    enum TransferMode {
+        LEGACY_BASE64,
+        FAST_BINARY
+    };
 
-QueueHandle_t cmdQ;
-enum class TxState {
-    IDLE,
-    SENDING,
-    PUT_RX
-};
-
-enum class TransferMode {
-    LEGACY_BASE64,
-    FAST_BINARY
-};
-
-struct Cmd {
     enum Type {
         LIST,
         GET,
@@ -53,18 +54,156 @@ struct Cmd {
         PUT_BEGIN_FAST,
         PUT_DATA,
         PUT_END
-    } type;
-    char arg[kCmdArgSize] = {0};
-    uint32_t n = 0;
-    uint16_t len = 0;
-};
+    };
 
-static std::vector<uint8_t> putBuf;
-static uint32_t putSeq = 0;
-static uint32_t putExpectedSize = 0;
-static uint32_t putExpectedCrc = 0;
-static TransferMode putMode = TransferMode::LEGACY_BASE64;
-static uint16_t putChunkSize = kLegacyRawChunkSize;
+    struct Cmd {
+        enum Type {
+            LIST,
+            GET,
+            GET_FAST,
+            ACK,
+            RESEND,
+            PURGE,
+            PUT_BEGIN,
+            PUT_BEGIN_FAST,
+            PUT_DATA,
+            PUT_END
+        } type;
+        char arg[kCmdArgSize] = {0};
+        uint32_t n = 0;
+        uint16_t len = 0;
+    };
+
+    static struct {
+        File file;
+        String fname;
+        uint32_t size = 0;
+        uint32_t crc = 0;
+        uint32_t nextSeq = 0;
+        uint32_t windowBase = 0;
+        uint32_t totalChunks = 0;
+        uint32_t windowSize = 1;
+        uint16_t chunkSize = kLegacyRawChunkSize;
+        TransferMode mode = TransferMode::LEGACY_BASE64;
+        TxState st = TxState::IDLE;
+    } tx;
+
+    QueueHandle_t cmdQ;
+
+    static String rxBuf;
+
+    static std::vector<uint8_t> putBuf;
+    static uint32_t putSeq = 0;
+    static uint32_t putExpectedSize = 0;
+    static uint32_t putExpectedCrc = 0;
+    static TransferMode putMode = TransferMode::LEGACY_BASE64;
+    static uint16_t putChunkSize = kLegacyRawChunkSize;
+
+    bool bleConnected = false;
+    bool bleAdvertising = false;
+
+    int totalFiles = 0;
+    int currentFileNumber = 0;
+    bool currentlySending = false;
+    static uint16_t bleConnId = 0;
+    static uint16_t blePeerMtu = kDefaultPeerMtu;
+
+    BLEServer *pServer = nullptr;
+
+    BLECharacteristic *pTxChar = nullptr;
+
+    void StartAdvertising()
+    {
+        if (!bleAdvertising && !bleConnected)
+        {
+            pServer->getAdvertising()->start();
+            bleAdvertising = true;
+        }
+    }
+
+    void StopAdvertising()
+    {
+        if (bleAdvertising)
+        {
+            pServer->getAdvertising()->stop();
+            bleAdvertising = false;
+        }
+    }
+
+    uint32_t crc32_file(File &f)
+    {
+
+    }
+
+    String based64_encode(const uint8_t *in, size_t len)
+    {
+
+    }
+
+    void txLine(const String &s)
+    {
+
+    }
+}
+
+namespace BLE
+{
+    void InitializeBLE()
+    {
+        BLEDevice::init("ESP32_LapTimer");
+        BLEDevice::setMTU(kDesiredBleMtu);
+        pServer = BLEDevice::createServer();
+        pServer->setCallbacks(new MyServerCB());
+        BLEService *svc = pServer->createService(SERVICE_UUID);
+
+        pTxChar = svc->createCharacteristic(CHARACTERISTIC_UUID_TX, BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_READ);
+        pTxChar->addDescriptor(new BLE2902);
+
+        BLECharacteristic *rx = svc->createCharacteristic(CHARACTERISTIC_UUID_RX, BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);
+        rx->setCallbacks(new MyRxCB());
+
+        svc->start();
+
+        cmdQ = xQueueCreate(8, sizeof(Cmd));
+        xTaskCreatePinnedToCore(bleWorker, "BLE_WRK", 6 * 1024, nullptr, 1, nullptr, 0);
+    }
+
+    void UpdateBLE(const Button::Mode& mode)
+    {
+        if (mode == Button::VERY_LONG)
+        {
+            if (!bleAdvertising)
+            {
+                StartAdvertising();
+            }
+        }
+    }
+
+    bool IsConnected()
+    {
+        return bleConnected;
+    }
+
+    bool IsAdvertising()
+    {
+        return bleAdvertising;
+    }
+
+    unsigned GetFileCount()
+    {
+        return totalFiles;
+    }
+
+    unsigned GetCurrentFileNumber()
+    {
+        return currentFileNumber;
+    }
+
+    bool IsSending()
+    {
+        return currentlySending;
+    }
+}
 
 static void resetPutState() {
     putBuf.clear();
@@ -157,20 +296,6 @@ static bool decodeBinaryFrame(
     payload = data + kBinaryFrameHeaderSize;
     return true;
 }
-
-static struct {
-    File file;
-    String fname;
-    uint32_t size = 0;
-    uint32_t crc = 0;
-    uint32_t nextSeq = 0;
-    uint32_t windowBase = 0;
-    uint32_t totalChunks = 0;
-    uint32_t windowSize = 1;
-    uint16_t chunkSize = kLegacyRawChunkSize;
-    TransferMode mode = TransferMode::LEGACY_BASE64;
-    TxState st = TxState::IDLE;
-} tx;
 
 static void resetTxState() {
     if (tx.file) {
@@ -709,57 +834,4 @@ static void bleWorker(void*) {
                 break;
         }
     }
-}
-
-void initBLE() {
-    BLEDevice::init("ESP32_LapTimer");
-    BLEDevice::setMTU(kDesiredBleMtu);
-    pServer = BLEDevice::createServer();
-    pServer->setCallbacks(new MyServerCB());
-    BLEService *svc = pServer->createService(SERVICE_UUID);
-
-    pTxChar = svc->createCharacteristic(CHARACTERISTIC_UUID_TX, BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_READ);
-    pTxChar->addDescriptor(new BLE2902);
-
-    BLECharacteristic *rx = svc->createCharacteristic(CHARACTERISTIC_UUID_RX, BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);
-    rx->setCallbacks(new MyRxCB());
-
-    svc->start();
-
-    cmdQ = xQueueCreate(8, sizeof(Cmd));
-    xTaskCreatePinnedToCore(bleWorker, "BLE_WRK", 6 * 1024, nullptr, 1, nullptr, 0);
-}
-
-void startAdvertising() {
-    if (!bleAdvertising && !bleConnected) {
-        pServer->getAdvertising()->start();
-        bleAdvertising = true;
-    }
-}
-
-void stopAdvertising() {
-    if (bleAdvertising) {
-        pServer->getAdvertising()->stop();
-        bleAdvertising = false;
-    }
-}
-
-bool isConnected() {
-    return bleConnected;
-}
-
-bool isAdvertising() {
-    return bleAdvertising;
-}
-
-int getFileCount() {
-    return totalFiles;
-}
-
-int getCurrentFileNumber() {
-    return currentFileNumber;
-}
-
-bool isSending() {
-    return currentlySending;
 }

@@ -2,22 +2,29 @@
 #define STORAGE_H
 
 #include <button.h>
+#include <gps.h>
 
 namespace Storage
 {
+    enum SessionType
+    {
+        LAP_TIMING,
+        ROUTE_TRACKING
+    };
+
     bool InitializeStorage();
 
-    void UpdateLapTiming(const GPS::FixData& data, Button::ButtonAction& action);
-
-    void UpdateRouteTracking(const GPS::FixData& data, Button::ButtonAction& action);
+    void UpdateSession(const GPS::FixData& data, const Button::Mode& mode);
 
     void WriteWaypointsFile(const uint8_t* raw, size_t len);
 
     bool LoadWaypoints();
+
+    double StorageUsage();
+
+    const SessionType GetSessionMode();
+
+    bool ShouldUpdateLoop();
 };
-
-#include <Arduino.h>
-
-extern String waypointsFile;
 
 #endif

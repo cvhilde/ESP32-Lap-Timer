@@ -10,6 +10,7 @@
 #include <display.h>
 #include "HT_SSD1306Wire.h"
 #include <Wire.h>
+#include <storage.h>
 
 //----------------------------------------------------------------------------
 // Private namespace
@@ -20,11 +21,15 @@ namespace
     // actual onboard OLED display.
     SSD1306Wire _display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
 
+    constexpr unsigned long SCREEN_REFRESH_RATE = 1000U;
+
     // Pin for the display power.
     constexpr unsigned ADC_CTRL = 37;
 
     // Initial setup flag.
     bool initialized = false;
+
+    unsigned long _lastDrawTime = 0;
 
     //------------------------------------------------------------------------
     // give power to the display
@@ -36,9 +41,42 @@ namespace
 
     //------------------------------------------------------------------------
     // Draw the permanent features on the display
-    void permDraws()
+    void PermDraws()
     {
+        _display.clear();
         _display.drawXbm(120, 4, 8, 8, Display::satelliteBitmap);
+        _display.display();
+    }
+
+    //------------------------------------------------------------------------
+	void DrawCurrentMode()
+    {
+        const Storage::SessionType mode(Storage::GetSessionMode());
+        char line[2];
+
+        _display.setColor(BLACK);
+        _display.fillRect(100, 16, 28, 16);
+        _display.setColor(WHITE);
+
+        if (mode == Storage::LAP_TIMING)
+        {
+            sprintf(line, "L");
+            _display.setTextAlignment(TEXT_ALIGN_RIGHT);
+            _display.drawString(120, 16, line);
+            _display.setTextAlignment(TEXT_ALIGN_LEFT);
+            _display.drawCircle(116, 24, 8);
+        }
+        else if (mode == Storage::ROUTE_TRACKING)
+        {
+            sprintf(line, "R");
+            _display.fillCircle(116, 24, 8);
+            _display.setColor(BLACK);
+            _display.setTextAlignment(TEXT_ALIGN_RIGHT);
+            _display.drawString(121, 16, line);
+            _display.setTextAlignment(TEXT_ALIGN_LEFT);
+            _display.setColor(WHITE);
+        }
+
         _display.display();
     }
 }
@@ -63,107 +101,85 @@ namespace Display
             _display.drawString(7, 48, "Carter Hildebrandt");
             _display.display();
             delay(5000);
+
+            PermDraws();
         }
 
         return initialized;
     }
 
     //------------------------------------------------------------------------
-	void DrawStatusScreen(const GPS::FixData& data)
+	void UpdateScreen(const GPS::FixData& data)
     {
-        char line1[30];
-        String gpsStatus = "";
-        int fixType = data.fixType;
-
-        if (fixType == 0 || fixType == 1)
-            gpsStatus = "No Fix";
-        else if (fixType == 2)
-            gpsStatus = "Poor";
-        else if (fixType == 3)
-            gpsStatus = "Good";
-        else if (fixType > 3)
-            gpsStatus = "Great";
-
-        sprintf(line1, "GPS: %s", gpsStatus.c_str());
-
-        char subLine1[10];
-        sprintf(subLine1, "%d", data.satelliteCount);
-
-        char line2[30];
-        sprintf(line2, "Storage: %.2f%%", storageUsage());
-
-        char line3[30];
-        String bleStatus = "";
-
-        if (isAdvertising()) {
-            bleStatus = "Advertising";
-        } else if (isConnected()) {
-            bleStatus = "Connected";
-        } else {
-            bleStatus = "Idle";
-        }
-        sprintf(line3, "BLE: %s", bleStatus.c_str());
-
-        _display.setColor(BLACK);
-        _display.fillRect(0, 48, 128, 16);
-
-        if (isSending()) {
-            int totalFiles = getFileCount();
-            int currentFile = getCurrentFileNumber();
-
-            char line4[30];
-            sprintf(line4, "Transfer File %d/%d", currentFile, totalFiles);
-
-            _display.setColor(WHITE);
-            _display.drawString(0, 48, line4);
-        }  
-
-        _display.setColor(BLACK);
-        _display.fillRect(0, 0, 80, 16);
-        _display.fillRect(90, 0, 30, 16);
-        _display.fillRect(0, 16, 100, 16);
-        _display.fillRect(0, 32, 100, 16);
-        _display.setColor(WHITE);
-        _display.drawString(0, 0, line1);
-        _display.drawString(0, 16, line2);
-        _display.drawString(0, 32, line3);
-
-        _display.setTextAlignment(TEXT_ALIGN_RIGHT);
-        _display.drawString(120, 0, subLine1);
-        _display.setTextAlignment(TEXT_ALIGN_LEFT);
-        
-        _display.display();
-    }
-
-    //------------------------------------------------------------------------
-	void DrawCurrentMode(Mode_t mode)
-    {
-        char line[2];
-
-        _display.setColor(BLACK);
-        _display.fillRect(100, 16, 28, 16);
-        _display.setColor(WHITE);
-
-        if (mode == LAP_TIMING)
+        if (millis() - _lastDrawTime > SCREEN_REFRESH_RATE)
         {
-            sprintf(line, "L");
-            _display.setTextAlignment(TEXT_ALIGN_RIGHT);
-            _display.drawString(120, 16, line);
-            _display.setTextAlignment(TEXT_ALIGN_LEFT);
-            _display.drawCircle(116, 24, 8);
-        }
-        else if (mode == ROUTE_TRACKING)
-        {
-            sprintf(line, "R");
-            _display.fillCircle(116, 24, 8);
+            _lastDrawTime = millis();
+
+            DrawCurrentMode();
+
+            char line1[30];
+            String gpsStatus = "";
+            int fixType = data.fixType;
+
+            if (fixType == 0 || fixType == 1)
+                gpsStatus = "No Fix";
+            else if (fixType == 2)
+                gpsStatus = "Poor";
+            else if (fixType == 3)
+                gpsStatus = "Good";
+            else if (fixType > 3)
+                gpsStatus = "Great";
+
+            sprintf(line1, "GPS: %s", gpsStatus.c_str());
+
+            char subLine1[10];
+            sprintf(subLine1, "%d", data.satelliteCount);
+
+            char line2[30];
+            sprintf(line2, "Storage: %.2f%%", Storage::StorageUsage());
+
+            char line3[30];
+            String bleStatus = "";
+
+            if (isAdvertising()) {
+                bleStatus = "Advertising";
+            } else if (isConnected()) {
+                bleStatus = "Connected";
+            } else {
+                bleStatus = "Idle";
+            }
+            sprintf(line3, "BLE: %s", bleStatus.c_str());
+
             _display.setColor(BLACK);
-            _display.setTextAlignment(TEXT_ALIGN_RIGHT);
-            _display.drawString(121, 16, line);
-            _display.setTextAlignment(TEXT_ALIGN_LEFT);
-            _display.setColor(WHITE);
-        }
+            _display.fillRect(0, 48, 128, 16);
 
-        _display.display();
+            if (isSending()) {
+                int totalFiles = getFileCount();
+                int currentFile = getCurrentFileNumber();
+
+                char line4[30];
+                sprintf(line4, "Transfer File %d/%d", currentFile, totalFiles);
+
+                _display.setColor(WHITE);
+                _display.drawString(0, 48, line4);
+            }  
+
+            _display.setColor(BLACK);
+            _display.fillRect(0, 0, 80, 16);
+            _display.fillRect(90, 0, 30, 16);
+            _display.fillRect(0, 16, 100, 16);
+            _display.fillRect(0, 32, 100, 16);
+            _display.setColor(WHITE);
+            _display.drawString(0, 0, line1);
+            _display.drawString(0, 16, line2);
+            _display.drawString(0, 32, line3);
+
+            _display.setTextAlignment(TEXT_ALIGN_RIGHT);
+            _display.drawString(120, 0, subLine1);
+            _display.setTextAlignment(TEXT_ALIGN_LEFT);
+            
+            _display.display();
+        }
     }
 
     //------------------------------------------------------------------------

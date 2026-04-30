@@ -11,10 +11,7 @@ namespace Display
 	bool InitializeDisplay();
 
 	// Draws the status screen based.
-	void DrawStatusScreen(const GPS::FixData& data);
-
-	// Draws the current mode (lap timing, or route tracking).
-	void DrawCurrentMode(Mode_t mode);
+	void UpdateScreen(const GPS::FixData& data);
 
 	// During purging of the flash, this will draw the "Purging Flash" message.
 	// This will not clear the message when purging is complete.
@@ -30,13 +27,6 @@ namespace Display
 
 	// Clears the "Getting Waypoints" message.
 	void ClearGettingMessage();
-
-	// Enum for the differemt modes of the ESP32 tracker
-	enum Mode_t
-	{
-		ROUTE_TRACKING,
-		LAP_TIMING
-	};
 
 	// Bit map for the satellite symbol drawn next to the number of satellites in view
 	const unsigned char satelliteBitmap[] PROGMEM = {

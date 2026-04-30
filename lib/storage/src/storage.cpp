@@ -1,378 +1,699 @@
+///===========================================================================
+///
+/// storage.cpp
+///
+/// This file contains waypoint storage and line-crossing logic used to track
+/// sectors and lap progression from recent GPS coordinate updates.
+///
+///===========================================================================
+
 #include <storage.h>
 #include <FS.h>
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
-#include <globals.h>
-#include <gps.h>
-#include <math.h>
+#include <led.h>
 
-String waypointsFile = "/waypoints.json";
-String currLogFile = "";
-String currTimeLogFile = "";
-String currSummaryFile = "";
-
-unsigned long lastLogTime = 0;
-unsigned long bufferWaitTime = 5000;    //5 second buffer
-String logBuffer;
-unsigned long logTimeBegin = 0;
-
-constexpr size_t kRamLimit   = 180 * 1024;  // 180 kB ≈ 18 min @ 10 kB/min
-constexpr size_t kLineMax    = 128; // longest CSV line
-constexpr double kFeetPerMile = 5280.0;
-constexpr double kMinDistanceSegmentFt = 3.0;
-constexpr double kStationarySpeedMph = 1.0;
-constexpr double kStationarySegmentRejectFt = 12.0;
-
-static char   logBuf[kRamLimit];
-static size_t logPos = 0;   // # bytes currently used
-static double sessionDistanceFt = 0.0;
-static double lastDistanceLat = 0.0;
-static double lastDistanceLng = 0.0;
-static bool haveLastDistancePoint = false;
-
-void flushRamToFlash();
-double storageUsage();
-
+//----------------------------------------------------------------------------
+// Private namespace
+//----------------------------------------------------------------------------
 namespace
 {
-    void StartSession();
+    // 180 kB ≈ 18 min @ 10 kB/min
+    constexpr size_t RAM_LIMIT_BYTES = 180 * 1024;
 
-    void WriteToLogFile(double lat, double lng, double speed);
+    // Longest CSV line
+    constexpr size_t CSV_LINE_LIMIT = 128;
 
-    void WriteToTimeLog(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3);
+    // Number of sectors to use for all logic
+    constexpr size_t NUMBER_OF_SECTORS = 3;
 
-    void EndSession();
+    constexpr unsigned long END_SESSION_BLINK_INTERVAL = 250U;
 
-    void StartRouteSession();
+    constexpr unsigned long FAILED_SESSION_BLINK_INTERVAL = 500U;
 
-    void WriteToRouteLog(double lat, double lng, double speed, double altitude);
+    constexpr unsigned long WAYPOINT_CROSSING_JITTER = 5000U;
 
-    void EndRouteSession();
-}
+    // Static waypoints.json location
+    const String WAYPOINTS_FILE = "/waypoints.json";
 
-static void resetSessionDistance() {
-    sessionDistanceFt = 0.0;
-    lastDistanceLat = 0.0;
-    lastDistanceLng = 0.0;
-    haveLastDistancePoint = false;
-}
+    const String MANIFEST_FILE = "/sessions.txt";
 
-static void updateSessionDistance(double lat, double lng, double speedMph) {
-    if (!haveLastDistancePoint) {
-        lastDistanceLat = lat;
-        lastDistanceLng = lng;
-        haveLastDistancePoint = true;
-        return;
-    }
-
-    double segmentFt = distanceBetweenFeet(lastDistanceLat, lastDistanceLng, lat, lng);
-    lastDistanceLat = lat;
-    lastDistanceLng = lng;
-
-    if (segmentFt < kMinDistanceSegmentFt) {
-        return;
-    }
-
-    if (speedMph < kStationarySpeedMph && segmentFt < kStationarySegmentRejectFt) {
-        return;
-    }
-
-    sessionDistanceFt += segmentFt;
-}
-
-static void writeSessionSummary(const char* sessionType) {
-    if (currSummaryFile.isEmpty()) {
-        return;
-    }
-
-    File summaryFile = SPIFFS.open(currSummaryFile, FILE_WRITE);
-    if (!summaryFile) {
-        Serial.println("Failed to create session summary file");
-        return;
-    }
-
-    summaryFile.println("SessionType,TotalDistanceFt,TotalDistanceMi");
-    summaryFile.printf("%s,%.2lf,%.5lf\n", sessionType, sessionDistanceFt, sessionDistanceFt / kFeetPerMile);
-    summaryFile.close();
-}
-
-
-void initStorage() {
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
-    if (!SPIFFS.begin(true)) {
-        Serial.println("SPIFFS mount failed");
-    }
-
-    if (!loadWaypoints()) {
-        Serial.println("Using hardcoded fallback waypoints");
-
-        trackWaypoints[0].p1.lat = 28.613391;
-        trackWaypoints[0].p1.lng = -81.179126;
-        trackWaypoints[0].p2.lat = 28.613467;
-        trackWaypoints[0].p2.lng = -81.179126;
-        trackWaypoints[0].isActive = 1;
-
-        trackWaypoints[1].p1.lat = 28.61392242;
-        trackWaypoints[1].p1.lng = -81.17897079;
-        trackWaypoints[1].p2.lat = 28.61392980;
-        trackWaypoints[1].p2.lng = -81.17906224;
-        trackWaypoints[1].isActive = 1;
-
-        trackWaypoints[2].p1.lat = 28.61364765;
-        trackWaypoints[2].p1.lng = -81.17963668;
-        trackWaypoints[2].p2.lat = 28.61365188;
-        trackWaypoints[2].p2.lng = -81.17954403;
-        trackWaypoints[2].isActive = 1;
-    }
-}
-
-bool loadWaypoints() {
-    File file = SPIFFS.open(waypointsFile, "r");
-    if (!file) {
-        Serial.println("No waypoint file");
-        return false;
-    }
-
-    DynamicJsonDocument doc(1024);
-    DeserializationError err = deserializeJson(doc, file);
-    file.close();
-
-    if (err) {
-        Serial.printf("JSON parse error: %s\n", err.c_str());
-        return false;
-    }
-
-    JsonArray wps = doc["waypoints"].as<JsonArray>();
-    if (wps.isNull()) {
-        Serial.println("Missing 'waypoints' array");
-        return false;
-    }
-
-    if (wps.size() != 3) {
-        Serial.printf("Expected 3 waypoints, got %u\n", (unsigned)wps.size());
-        return false;
-    }
-
-    for (int i = 0; i < 3; i++) {
-        JsonObject wp = wps[i];
-
-        if (!wp["p1"].is<JsonObject>() || !wp["p2"].is<JsonObject>()) {
-            Serial.printf("Waypoint %d missing p1/p2 object\n", i);
-            return false;
-        }
-
-        if (!wp["p1"]["lat"].is<float>() || !wp["p1"]["lng"].is<float>() ||
-            !wp["p2"]["lat"].is<float>() || !wp["p2"]["lng"].is<float>()) {
-            Serial.printf("Waypoint %d has invalid coordinate fields\n", i);
-            return false;
-        }
-
-        trackWaypoints[i].p1.lat = wp["p1"]["lat"].as<double>();
-        trackWaypoints[i].p1.lng = wp["p1"]["lng"].as<double>();
-        trackWaypoints[i].p2.lat = wp["p2"]["lat"].as<double>();
-        trackWaypoints[i].p2.lng = wp["p2"]["lng"].as<double>();
-        trackWaypoints[i].isActive = wp["active"] | 1;
-    }
-
-    Serial.printf(
-        "Waypoints loaded: start (%.6f, %.6f) -> (%.6f, %.6f)\n",
-        trackWaypoints[0].p1.lat,
-        trackWaypoints[0].p1.lng,
-        trackWaypoints[0].p2.lat,
-        trackWaypoints[0].p2.lng
-    );
-
-    return true;
-}
-
-void writeWaypointsFile(const uint8_t* raw, size_t len) {
-    File file = SPIFFS.open(waypointsFile, "w");
-    file.write(raw, len);
-    file.close();
-    loadWaypoints();
-}
-
-// starts session by updating the curr Strings, and creating the file
-// prints the csv file header for both, and updates the sessions.txt manifest
-void startSession()
-{
-    GPS::GPSTimeData time(GPS::GPSTime());
-
-    if (sessionActive && time.valid)
+    // Data associated with the ram buffer
+    struct RamData
     {
-        char timestamp[25];
-        sprintf(timestamp, "%04d%02d%02d_%02d%02d%02d", time.year, time.month, time.day, time.hour, time.minute, time.second);
-        currentTimestamp = String(timestamp);
+        // Ram buffer for each session log
+        char logBuffer[RAM_LIMIT_BYTES];
 
-        currLogFile = "/log_" + currentTimestamp + ".csv";
-        currTimeLogFile = "/timestamps_" + currentTimestamp + ".csv";
-        currSummaryFile = "/summary_" + currentTimestamp + ".csv";
+        // Number of bytes currently used
+        size_t logPosition;
 
-        Serial.printf("GNSS NAV-PVT time: %04d-%02d-%02d %02d:%02d:%02d\n", time.year, time.month, time.day, time.hour, time.minute, time.second);
+        // Time of session begin, relative in millis()
+        unsigned long logTimeBegin;
 
-        File logFile = SPIFFS.open(currLogFile, FILE_WRITE);
-        File timeFile = SPIFFS.open(currTimeLogFile, FILE_WRITE);
-        if (!logFile || !timeFile)
+        RamData() :
+            logPosition(0),
+            logTimeBegin(0)
+        {}
+    };
+
+    // Data relating to active/previous sessions
+    struct SessionInfo
+    {
+        // Is session active
+        bool sessionActive;
+
+        unsigned routeLogFrequency;
+
+        unsigned lapLogFrequency;
+
+        unsigned long lastUpdateTime;
+
+        // Default to lap timing mode
+        Storage::SessionType sessionType;
+
+        // Current file name of the log file (both lap and route mode)
+        String currentLogFile;
+
+        // Current file name of the time log file
+        String currentTimeLogFile;
+
+        // Current file name of the summary file. This is not created at session
+        // start. This variable is updated at the start of a session to keep track
+        // of the date/time the session was started so the file may be
+        // associated with the route or lap timing session.
+        String currentSummaryFile;
+
+        // Current timestamp to be used in file names for the active session
+        String currentTimeStamp;
+
+        SessionInfo() :
+            sessionActive(false),
+            routeLogFrequency(5U),
+            lapLogFrequency(10U),
+            lastUpdateTime(0U),
+            sessionType(Storage::LAP_TIMING),
+            currentLogFile(""),
+            currentTimeLogFile(""),
+            currentSummaryFile(""),
+            currentTimeStamp("")
+        {}
+    };
+
+    // Data relating to lap timing sessions
+    struct LapTimingSessionInfo
+    {
+        // Current lap number. This is the number of laps completed
+        unsigned lapNumber;
+
+        unsigned currentSector;
+
+        unsigned long lastCrossTime;
+
+        unsigned long lastLapTime;
+
+        unsigned long currentLapTime;
+
+        unsigned long lastSectorTime;
+
+        unsigned long sector1Time;
+
+        unsigned long sector2Time;
+
+        unsigned long sector3Time;
+
+        bool firstLap;
+
+        LapTimingSessionInfo() :
+            lapNumber(0),
+            currentSector(0),
+            lastCrossTime(0U),
+            lastLapTime(0U),
+            currentLapTime(0U),
+            lastSectorTime(0U),
+            sector1Time(0U),
+            sector2Time(0U),
+            sector3Time(0U),
+            firstLap(false)
+        {}
+    };
+
+    // All data associated with writing to the session log
+    RamData _ramData;
+
+    // All data associated with the session information
+    SessionInfo _sessionData;
+
+    LapTimingSessionInfo _lapData;
+
+    //------------------------------------------------------------------------
+    void StartLapSession(const GPS::GPSTimeData& time)
+    {
+        if (time.valid)
         {
-            Serial.println("Failed to create session files");
+            char timestamp[25];
+            sprintf(timestamp, "%04d%02d%02d_%02d%02d",
+                                time.year,
+                                time.month,
+                                time.day,
+                                time.hour,
+                                time.minute
+            );
+            _sessionData.currentTimeStamp = String(timestamp);
+
+            _sessionData.currentLogFile = "/log_" + _sessionData.currentTimeStamp + ".csv";
+            _sessionData.currentTimeLogFile = "/timestamps_" + _sessionData.currentTimeStamp + ".csv";
+            _sessionData.currentSummaryFile = "/summary_" + _sessionData.currentTimeStamp + ".csv";
+
+            File logFile  = SPIFFS.open(_sessionData.currentLogFile, FILE_WRITE);
+            File timeFile = SPIFFS.open(_sessionData.currentTimeLogFile, FILE_WRITE);
+            File manifest = SPIFFS.open(MANIFEST_FILE, FILE_APPEND);
+            if (!logFile || timeFile || !manifest)
+            {
+                // Failed to write to manifest, meaning the session will
+                // never be transferred to the app. Or the time/log file 
+                // failed to be created as well. Basically, this is a
+                // failed session start.
+
+                Led::StartOneShotBlink(FAILED_SESSION_BLINK_INTERVAL, FAILED_SESSION_BLINK_INTERVAL * 4);
+                return;
+            }
+
+            logFile.println("Latitude,Longitude,Speed(MPH),Millis,LapNumber");
+            timeFile.println("LapNumber,Laptime,Sector1,Sector2,Sector3");
+
+            logFile.close();
+            timeFile.close();
+
+            manifest.println(_sessionData.currentTimeStamp);
+            manifest.close();
+
+            _ramData.logPosition = 0;
+            _ramData.logTimeBegin = millis();
+            WayPoints::ResetSessionDistance();
+
+            Led::TurnLedOn();
+
+            _sessionData.sessionActive = true;
+        }
+    }
+
+    //------------------------------------------------------------------------
+    void WriteToLogFile(const GPS::FixData& data)
+    {
+        if (!_sessionData.sessionActive)
+        {
             return;
         }
 
-        logFile.println("Latitude,Longitude,Speed(MPH),Millis,LapNumber");
-        timeFile.println("LapNumber,Laptime,Sector1,Sector2,Sector3");
+        WayPoints::UpdateSessionDistance(data.coord, data.speed);
 
-        logFile.close();
-        timeFile.close();
+        // _lapNumber is the number of completed laps. This log file needs to
+        // to log what lap you are on.
+        unsigned currentLapNumber = _lapData.lapNumber + 1;
 
-        logPos = 0;
-        logTimeBegin = millis();
-        resetSessionDistance();
+        char string[CSV_LINE_LIMIT];
+        int size = snprintf(string, sizeof(string), "%.7lf,%.7lf,%.2lf,%lu, %d\n",
+                            data.coord.lat,
+                            data.coord.lng,
+                            data.speed,
+                            millis() - _ramData.logTimeBegin,
+                            currentLapNumber
+        );
 
-        File manifest = SPIFFS.open("/sessions.txt", FILE_APPEND);
-        if (manifest) {
-            manifest.println(currentTimestamp);
-            manifest.close();
+        if (_ramData.logPosition + size > RAM_LIMIT_BYTES)
+        {
+            FlushRamToFlash();
+
+            // Don't write it to memory if the line is corrupted.
+            if (size < 0 || size >= sizeof(string)) return;
         }
 
-        Serial.println("Sessions started: " + currentTimestamp);
-        sessionActive = true;
+        memcpy(_ramData.logBuffer + _ramData.logPosition, string, size);
+        _ramData.logPosition += size;
     }
-}
 
-void startRouteSession()
-{
-    GPS::GPSTimeData time(GPS::GPSTime());
-
-    if (sessionActive && time.valid)
+    //------------------------------------------------------------------------
+    void WriteToTimeLog()
     {
-        char timestamp[25];
-        sprintf(timestamp, "%04d%02d%02d_%02d%02d%02d", time.year, time.month, time.day, time.hour, time.minute, time.second);
-        currentTimestamp = String(timestamp);
-
-        currLogFile = "/route_" + currentTimestamp + ".csv";
-        currSummaryFile = "/summary_" + currentTimestamp + ".csv";
-        Serial.printf("GNSS NAV-PVT time: %04d-%02d-%02d %02d:%02d:%02d\n", time.year, time.month, time.day, time.hour, time.minute, time.second);
-
-        File routeFile = SPIFFS.open(currLogFile, FILE_WRITE);
-        if (!routeFile)
+        // Don't write times if there is no session active.
+        if (!_sessionData.sessionActive)
         {
-            Serial.println("Failed to create route session file");
             return;
         }
 
-        routeFile.println("Latitude,Longitude,Speed(MPH),Altitude(Ft),Millis");
-        routeFile.close();
-        
-        logPos = 0;
-        logTimeBegin = millis();
-        resetSessionDistance();
+        // If this is being called, that means we completed a lap. Iterate it
+        _lapData.lapNumber++;
 
-        File manifest = SPIFFS.open("/sessions.txt", FILE_APPEND);
-        if (manifest) {
-            manifest.println(currentTimestamp);
+        char string[CSV_LINE_LIMIT];
+        sprintf(string, "%d,%lu,%lu,%lu,%lu\n",
+                        _lapData.lapNumber,
+                        _lapData.currentLapTime,
+                        _lapData.sector1Time,
+                        _lapData.sector2Time,
+                        _lapData.sector3Time
+        );
+
+        File timeFile = SPIFFS.open(_sessionData.currentTimeLogFile, FILE_APPEND);
+
+        // If it doesn't open, it's not fatal. The user will just not have lap
+        // times. Don't halt the user.
+        if (timeFile)
+        {
+            timeFile.print(string);
+            timeFile.close();
+        }
+    }
+
+    //------------------------------------------------------------------------
+    void EndLapSession()
+    {
+        FlushRamToFlash();
+        WriteSessionSummary("lap");
+        _sessionData.currentSummaryFile = "";
+        _lapData.lapNumber = 0;
+
+        Led::TurnLedOff();
+        Led::StartOneShotBlink(END_SESSION_BLINK_INTERVAL, END_SESSION_BLINK_INTERVAL * 4);
+
+        _sessionData.sessionActive = false;
+    }
+
+    //------------------------------------------------------------------------
+    void StartRouteSession(const GPS::GPSTimeData& time)
+    {
+        if (time.valid)
+        {
+            char timestamp[25];
+            sprintf(timestamp, "%04d%02d%02d_%02d%02d",
+                                time.year,
+                                time.month,
+                                time.day,
+                                time.hour,
+                                time.minute
+            );
+            _sessionData.currentTimeStamp = String(timestamp);
+
+            _sessionData.currentLogFile = "/route_" + _sessionData.currentTimeStamp + ".csv";
+            _sessionData.currentSummaryFile = "/summary_" + _sessionData.currentTimeStamp + ".csv";
+
+            File routeFile = SPIFFS.open(_sessionData.currentLogFile, FILE_WRITE);
+            File manifest  = SPIFFS.open(MANIFEST_FILE, FILE_APPEND);
+            if (!routeFile || !manifest)
+            {
+                // Failed to write to manifest, meaning the session will
+                // never be transferred to the app. Or the routeFile 
+                // failed to be created as well. Basically, this is a
+                // failed session start.
+
+                Led::StartOneShotBlink(FAILED_SESSION_BLINK_INTERVAL, FAILED_SESSION_BLINK_INTERVAL * 4);
+                return;
+            }
+
+            routeFile.println("Latitude,Longitude,Speed(MPH),Altitude(Ft),Millis");
+            routeFile.close();
+
+            manifest.println(_sessionData.currentTimeStamp);
             manifest.close();
+
+            _ramData.logPosition = 0;
+            _ramData.logTimeBegin = millis();
+            WayPoints::ResetSessionDistance();
+
+            Led::TurnLedOn();
+
+            _sessionData.sessionActive = true;
+        }
+    }
+
+    //------------------------------------------------------------------------
+    void WriteToRouteLog(const GPS::FixData& data)
+    {
+        if (!_sessionData.sessionActive)
+        {
+            return;
         }
 
-        Serial.println("Sessions started: " + currentTimestamp);
-        sessionActive = true;
+        WayPoints::UpdateSessionDistance(data.coord, data.speed);
+
+        char string[CSV_LINE_LIMIT];
+        int size = snprintf(string, sizeof(string), "%.7lf,%.7lf,%.2lf,%.2lf,%lu\n",
+                            data.coord.lat,
+                            data.coord.lng,
+                            data.speed,
+                            data.altitude,
+                            millis() - _ramData.logTimeBegin
+        );
+
+        if (_ramData.logPosition + size > RAM_LIMIT_BYTES)
+        {
+            FlushRamToFlash();
+
+            // Don't write it to memory if the line is corrupted.
+            if (size < 0 || size >= sizeof(string)) return;
+        }
+
+        memcpy(_ramData.logBuffer + _ramData.logPosition, string, size);
+        _ramData.logPosition += size;
+    }
+
+    //------------------------------------------------------------------------
+    void EndRouteSession()
+    {
+        FlushRamToFlash();
+        WriteSessionSummary("route");
+        _sessionData.currentSummaryFile = "";
+
+        Led::TurnLedOff();
+        Led::StartOneShotBlink(END_SESSION_BLINK_INTERVAL, END_SESSION_BLINK_INTERVAL * 4);
+
+        _sessionData.sessionActive = false;
+    }
+
+    //------------------------------------------------------------------------
+    void WriteSessionSummary(const char* sessionType)
+    {
+        // Summary file name was never updated. Don't create the file.
+        if (_sessionData.currentSummaryFile.isEmpty())
+        {
+            return;
+        }
+
+        File summaryFile = SPIFFS.open(_sessionData.currentSummaryFile, FILE_WRITE);
+        if (!summaryFile)
+        {
+            // File was unable to be created. Not a fatal event, so no need
+            // to signal to the user, but don't proceed with writing to the
+            // empty file pointer.
+            return;
+        }
+
+        const WayPoints::SessionDistance& distance(WayPoints::GetSessionDistance());
+
+        summaryFile.println("SessionType,TotalDistanceFt,TotalDistanceMi");
+        summaryFile.printf("%s,%.2lf,%.5lf\n",
+                            sessionType,
+                            distance.distanceFeet,
+                            distance.distanceMile
+        );
+
+        summaryFile.close();
+    }
+
+    //------------------------------------------------------------------------
+    void FlushRamToFlash()
+    {
+        if (_ramData.logPosition == 0)
+            return;
+
+        File logFile = SPIFFS.open(_sessionData.currentLogFile, FILE_APPEND);
+
+        if (logFile)
+        {
+            logFile.write((uint8_t*)_ramData.logBuffer, _ramData.logPosition);
+            logFile.close();
+        }
+
+        _ramData.logPosition = 0;
     }
 }
 
-// writes incoming updates in a log, and will only flush to the log file
-// every 5 seconds. done to reduce amount of times opening and closing file
-void writeToLogFile(double lat, double lng, double speed) {
-    if (!sessionActive) {
-        return;
+//----------------------------------------------------------------------------
+// Storage Public namespace
+//----------------------------------------------------------------------------
+namespace Storage
+{
+    //------------------------------------------------------------------------
+    bool InitializeStorage()
+    {
+        bool success = SPIFFS.begin(true);
+
+        if (success)
+        {
+            if (!LoadWaypoints()) {
+                // Wasn't able to load the waypoints for whatever reason.
+                // This could mean a couple of different things, so just use default
+                // values. This don't mean anything, but will prevent other code 
+                // for not working until a waypoints file is uploaded.
+
+                WayPoints::TrackedWaypoints defaultWaypoints;
+
+                for (int i = 0; i < NUMBER_OF_SECTORS; i++)
+                {
+                    defaultWaypoints.at(i).p1.lat   =   i + 1;
+                    defaultWaypoints.at(i).p1.lng   =   i + 1;
+                    defaultWaypoints.at(i).p2.lat   = -(i + 1);
+                    defaultWaypoints.at(i).p2.lng   = -(i + 1);
+                    defaultWaypoints.at(i).isActive = true;
+                }
+
+                WayPoints::SetTrackWaypoints(defaultWaypoints);
+            }
+        }
+        else
+        {
+            // Failed to mount flash. This is fatal.
+            // Do nothing for now, and signal to main that we can't continue.
+        }
+
+        return success;
     }
 
-    updateSessionDistance(lat, lng, speed);
+    //------------------------------------------------------------------------
+    void UpdateSession(const GPS::FixData& data, const Button::Mode& mode)
+    {
+        // Short button press is related to start/stopping session logic
+        if (mode == Button::SHORT)
+        {
+            // No session is active, start a new one
+            if (!_sessionData.sessionActive)
+            {
+                switch (_sessionData.sessionType)
+                {
+                    case LAP_TIMING:
+                        StartLapSession(data.dateTime);
+                        break;
+                    case ROUTE_TRACKING:
+                        StartRouteSession(data.dateTime);
+                        break;
+                    default:
+                        // Invalid sessionType. Do nothing
+                        break;
+                }
+            }
+            // Session is active, go ahead and stop it
+            else if (_sessionData.sessionActive)
+            {
+                switch (_sessionData.sessionType)
+                {
+                case LAP_TIMING:
+                    EndLapSession();
+                    break;
+                case ROUTE_TRACKING:
+                    EndRouteSession();
+                    break;
+                default:
+                    // Invalid sessionType. Do nothing
+                    break;
+                }
+            }
+        }
+        // Long button press is related to switching session type.
+        else if (mode == Button::LONG)
+        {
+            switch (_sessionData.sessionType)
+            {
+                case LAP_TIMING:
+                    _sessionData.sessionType = ROUTE_TRACKING;
+                    break;
+                case ROUTE_TRACKING:
+                    _sessionData.sessionType = LAP_TIMING;
+                    break;
+                default:
+                    // Invalid sessionType. Do nothing
+                    break;
+            }
+        }
 
-    char line[kLineMax];
-    int currentLapNumber = lapNumber + 1;
-    int  n = snprintf(
-        line,
-        sizeof(line),
-        "%.7lf,%.7lf,%.2lf,%lu,%d\n",
-        lat,
-        lng,
-        speed,
-        millis() - logTimeBegin,
-        currentLapNumber
-    );
+        // Handle updating active sessions
+        if (_sessionData.sessionActive)
+        {
+            switch (_sessionData.sessionType)
+            {
+                case LAP_TIMING:
+                    WriteToLogFile(data);
+                    break;
+                case ROUTE_TRACKING:
+                    WriteToRouteLog(data);
+                    break;
+                default:
+                    break;
+            }
+        }
 
-    if (logPos + n > kRamLimit) {
-        flushRamToFlash();          // write the 180 kB chunk
-        if (n > kRamLimit) return;
+        // Handle the sector waypoint crossing logic. This is only ran
+        // for lap timing mode. Route tracking just logs the position.
+        if (_sessionData.sessionActive && _sessionData.sessionType == LAP_TIMING)
+        {
+            if (WayPoints::WaypointCrossed(_lapData.currentSector))
+            {
+                if (millis() - _lapData.lastCrossTime > WAYPOINT_CROSSING_JITTER)
+                {
+                    _lapData.lastCrossTime = millis();
+
+                    switch (_lapData.currentSector)
+                    {
+                        case 0: // Start/finish line
+                            if (_lapData.firstLap)
+                            {
+                                _lapData.lastLapTime    = millis();
+                                _lapData.lastSectorTime = millis();
+                                _lapData.firstLap       = false;
+                            }
+                            else
+                            {
+                                _lapData.currentLapTime = millis() - _lapData.lastLapTime;
+                                _lapData.sector3Time    = millis() - _lapData.lastSectorTime;
+                                _lapData.lastLapTime    = millis();
+                                _lapData.lastSectorTime = millis();
+                                WriteToTimeLog();
+                            }
+                            break;
+                        case 1: // First sector crossing
+                            _lapData.sector1Time    = millis() - _lapData.lastSectorTime;
+                            _lapData.lastSectorTime = millis();
+                            break;
+                        case 2:
+                            _lapData.sector2Time    = millis() - _lapData.lastSectorTime;
+                            _lapData.lastSectorTime = millis();
+                            break;
+                        default:
+                            break;
+                    }
+
+                    _lapData.currentSector++;
+                    if (_lapData.currentSector > 2)
+                    {
+                        _lapData.currentSector = 0;
+                    }
+                } // end of sector logic
+            }
+        } //  end of lap timing logic
     }
 
-    memcpy(logBuf + logPos, line, n);
-    logPos += n;
-}
+    //------------------------------------------------------------------------
+    bool LoadWaypoints()
+    {
+        File waypointsFile = SPIFFS.open(WAYPOINTS_FILE, FILE_READ);
+        if (!waypointsFile)
+        {
+            // This just means there is no waypoints file. Not fatal, just
+            // means no file has been written yet. Use the defaults until
+            // a new waypoints file is uploaded via BLE.
+            return false;
+        }
 
-void writeToTimeLog(unsigned long lapTime, unsigned long sector1, unsigned long sector2, unsigned long sector3) {
-    char str[128];
-    sprintf(str, "%d,%lu,%lu,%lu,%lu\n", lapNumber, lapTime, sector1, sector2, sector3);
+        WayPoints::TrackedWaypoints waypoints;
 
-    File timeFile = SPIFFS.open(currTimeLogFile, FILE_APPEND);
-    if (timeFile) {
-        timeFile.print(str);
-        timeFile.close();
+        DynamicJsonDocument doc(1024);
+        DeserializationError err(deserializeJson(doc, waypointsFile));
+        waypointsFile.close();
+
+        if (err)
+        {
+            // JSON parse error. This means either the JSON was corrupt,
+            // written incorrectly, or some erranious error.
+            return false;
+        }
+
+        JsonArray wps = doc["waypoints"].as<JsonArray>();
+        if (wps.isNull() || wps.size() != NUMBER_OF_SECTORS)
+        {
+            // Missing the 'waypoints' array or not the correct number of
+            // waypoints. This means the JSON was written incorrectly.
+            return false;
+        }
+
+        for (int i = 0; i < NUMBER_OF_SECTORS; i++)
+        {
+            JsonObject wp = wps[i];
+
+            if (!wp["p1"].is<JsonObject>() || !wp["p2"].is<JsonObject>())
+            {
+                // Missing the p1/p2 objects. This means the JSON was
+                // written incorrectly.
+                return false;
+            }
+
+            if (!wp["p1"]["lat"].is<float>() || !wp["p1"]["lng"].is<float>() ||
+                !wp["p2"]["lat"].is<float>() || !wp["p2"]["lng"].is<float>())
+            {
+                // The lat/lng fields are the wrong value. This means the JSON
+                // was written incorrectly.
+                return false;
+            }
+
+            waypoints.at(i).p1.lat   = wp["p1"]["lat"].as<double>();
+            waypoints.at(i).p1.lng   = wp["p1"]["lng"].as<double>();
+            waypoints.at(i).p2.lat   = wp["p2"]["lat"].as<double>();
+            waypoints.at(i).p2.lng   = wp["p2"]["lng"].as<double>();
+            waypoints.at(i).isActive = wp["active"] | 1;
+        }
+
+        WayPoints::SetTrackWaypoints(waypoints);
+        return true;
     }
-}
 
-void writeToRouteLog(double lat, double lng, double speed, double altitude) {
-    if (!sessionActive) {
-        return;
+    //------------------------------------------------------------------------
+    void WriteWaypointsFile(const uint8_t* raw, size_t len)
+    {
+        File waypointsFile = SPIFFS.open(WAYPOINTS_FILE, FILE_WRITE);
+
+        waypointsFile.write(raw, len);
+        waypointsFile.close();
+
+        LoadWaypoints();
     }
 
-    updateSessionDistance(lat, lng, speed);
+    //------------------------------------------------------------------------
+    double StorageUsage()
+    {
+        size_t total = SPIFFS.totalBytes();   // size of the SPIFFS partition
+        size_t used  = SPIFFS.usedBytes();    // how much is already occupied
 
-    char line[kLineMax];
-    int  n = snprintf(line, sizeof(line), "%.7lf,%.7lf,%.2lf,%.2lf,%lu\n", lat, lng, speed, altitude, millis() - logTimeBegin);
-
-    if (logPos + n > kRamLimit) {
-        flushRamToFlash();          // write the 180 kB chunk
-        if (n > kRamLimit) return;
+        return (used * 100.0) / total;
     }
 
-    memcpy(logBuf + logPos, line, n);
-    logPos += n;
-}
-
-void endSession() {
-    flushRamToFlash();
-    writeSessionSummary("lap");
-    currSummaryFile = "";
-    sessionActive = false;
-}
-
-void endRouteSession() {
-    flushRamToFlash();
-    writeSessionSummary("route");
-    currSummaryFile = "";
-    sessionActive = false;
-}
-
-void flushRamToFlash() {
-    if (logPos == 0) {
-        return;
+    //------------------------------------------------------------------------
+    const SessionType GetSessionMode()
+    {
+        return _sessionData.sessionType;
     }
 
-    File logFile = SPIFFS.open(currLogFile, FILE_APPEND);
-    if (logFile) {
-        logFile.write((uint8_t*)logBuf, logPos);
-        logFile.close();
+    //------------------------------------------------------------------------
+    bool ShouldUpdateLoop()
+    {
+        unsigned long updateTime;
+        bool update(false);
+
+        switch (_sessionData.sessionType)
+        {
+            case LAP_TIMING:
+                updateTime = 1000U / _sessionData.lapLogFrequency;
+                break;
+            case ROUTE_TRACKING:
+                updateTime = 1000U / _sessionData.routeLogFrequency;
+                break;
+            default:
+                updateTime = 1000U;
+                break;
+        }
+
+        if (millis() - _sessionData.lastUpdateTime >= updateTime)
+        {
+            _sessionData.lastUpdateTime = millis();
+            update = true;
+        }
+
+        return update;
     }
-    logPos = 0;
-}
-
-double storageUsage() {
-    size_t total = SPIFFS.totalBytes();   // size of the SPIFFS partition
-    size_t used  = SPIFFS.usedBytes();    // how much is already occupied
-
-    return (used * 100.0) / total;
-}
-
-double getSessionDistanceFt() {
-    return sessionDistanceFt;
 }

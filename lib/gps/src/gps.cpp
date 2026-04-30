@@ -66,8 +66,8 @@ namespace GPS
 
         if (fix >= 2 && fix <= 4)
         {
-            _fixData.latitude  = _gps.getLatitude()    * LAT_LONG_TO_DEGREES;
-            _fixData.longitude = _gps.getLongitude()   * LAT_LONG_TO_DEGREES;
+            _fixData.coord.lat = _gps.getLatitude()    * LAT_LONG_TO_DEGREES;
+            _fixData.coord.lng = _gps.getLongitude()   * LAT_LONG_TO_DEGREES;
             _fixData.speed     = _gps.getGroundSpeed() * MM_S_TO_MPH;
             _fixData.altitude  = _gps.getAltitudeMSL() * MM_TO_FEET;
             

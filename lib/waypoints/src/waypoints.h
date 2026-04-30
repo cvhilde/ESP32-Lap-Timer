@@ -1,6 +1,8 @@
 #ifndef WAYPOINTS_H
 #define WAYPOINTS_H
 
+#include <array>
+
 namespace WayPoints
 {
     // Data structure for a coordinate point on a 2D plane.
@@ -8,6 +10,11 @@ namespace WayPoints
     {
         double lat;
         double lng;
+
+        Coord() :
+            lat(0.0),
+            lng(0.0)
+        {}
     };
 
     // Data structure for a sector crossing waypoint. It uses two
@@ -23,19 +30,47 @@ namespace WayPoints
         {}
     };
 
+    struct SessionDistance
+    {
+        double distanceFeet;
+        double distanceMile;
+
+        SessionDistance() :
+            distanceFeet(0.0),
+            distanceMile(0.0)
+        {}
+    };
+
+    typedef std::array<WayPoints::WayPoint, 3> TrackedWaypoints;
+
+    typedef std::array<WayPoints::Coord, 2> RecentLocations;
+
     // Earth radius in feet.
     constexpr double EARTH_RADIUS_FT = 20902230.0;
 
     // Constant for converting degrees to radians.
     constexpr double DEG_TO_RADIANS = 0.017453292519943295;
 
+    constexpr double FEET_PER_MILE = 5280.0;
+
     // Function that will store the current gps location, and shift
     // back the previous location.
-    void StoreCurrentLocation(double lat, double lng);
+    void StoreCurrentLocation(WayPoints::Coord& point);
 
-    // Calculates the distance between two coordinate points in feet.
-    double DistanceFeet(WayPoints::Coord p1, WayPoints::Coord p2);
+    // Reset the session distance counter for a new session.
+    void ResetSessionDistance();
 
+    // Updates the session distance counter.
+    void UpdateSessionDistance(const Coord& coord, const double speed);
+
+    bool WaypointCrossed(const unsigned currentSector);
+
+    // Gets the session distance.
+    const SessionDistance& GetSessionDistance();
+
+    const TrackedWaypoints& GetTrackWaypoints();
+
+    void SetTrackWaypoints(const TrackedWaypoints& waypoints);
 };
 
 #endif

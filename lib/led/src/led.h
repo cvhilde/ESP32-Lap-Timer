@@ -3,6 +3,8 @@
 
 namespace Led
 {
+    void InitializeLed();
+
     // Start a blink with even intervals (in ms)
     void StartBlink(unsigned long internval);
 

@@ -9,6 +9,8 @@ bool ledFlag = true;
 
 void setup() {
     Serial.begin(115200);
+    Button::InitializeButton();
+    Led::InitializeLed();
 
     Led::StartBlink(250U);
     Display::InitializeDisplay();
@@ -38,7 +40,6 @@ void loop() {
 
     // Perform rest of loop at set refresh rate.
     if (Storage::ShouldUpdateLoop()) {
-
         // Only update session logic when there is atleast a 2D fix.
         if (fixData.fixType > GPS::DEAD_RECKONING) {
 

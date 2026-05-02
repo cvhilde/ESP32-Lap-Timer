@@ -22,7 +22,7 @@ namespace
         unsigned long pressStart;
     };
 
-    constexpr uint8_t BUTTON_PIN = 48;
+    constexpr uint8_t BUTTON_PIN = 46;
 
     ButtonPersistent _logicState;
 
@@ -35,15 +35,20 @@ namespace
 
 namespace Button
 {
+    void InitializeButton()
+    {
+        pinMode(BUTTON_PIN, INPUT_PULLUP);
+    }
+
     Mode PollButtonAction()
     {
         unsigned long buttonPressDuration(0);
         bool beginButtonLogic(false);
-        bool currentState(digitalRead(BUTTON_PIN));
         Mode MODE(NONE);
 
         if (!_logicState.initialized)
         {
+            bool currentState(digitalRead(BUTTON_PIN));
             _logicState.prev = currentState;
 
             if (currentState == LOW)
@@ -55,6 +60,8 @@ namespace Button
 
             return MODE;
         }
+
+        bool currentState(digitalRead(BUTTON_PIN));
 
         if (_logicState.prev == HIGH && currentState == LOW)
         {

@@ -11,6 +11,8 @@ namespace Button
         VERY_LONG
     };
 
+    void InitializeButton();
+
     Mode PollButtonAction();
 }
 

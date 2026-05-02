@@ -3,7 +3,7 @@
 
 namespace Button
 {
-    enum Mode
+    enum class Mode
     {
         NONE,
         SHORT,

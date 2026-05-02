@@ -55,7 +55,7 @@ namespace WayPoints
 
     // Function that will store the current gps location, and shift
     // back the previous location.
-    void StoreCurrentLocation(WayPoints::Coord& point);
+    void StoreCurrentLocation(const WayPoints::Coord& point);
 
     // Reset the session distance counter for a new session.
     void ResetSessionDistance();

@@ -25,9 +25,9 @@
 //----------------------------------------------------------------------------
 namespace
 {
-    #define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-    #define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-    #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+    constexpr char SERVICE_UUID[]           = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
+    constexpr char CHARACTERISTIC_UUID_RX[] = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";
+    constexpr char CHARACTERISTIC_UUID_TX[] = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
 
     constexpr char     BASE64_KEY[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -50,20 +50,20 @@ namespace
     constexpr unsigned ADVERTISING_TIMEOUT_DURATION = 1000U;
     constexpr unsigned ADVERTISING_TIMEOUT          = 60000U;
 
-    enum TxState
+    enum class TxState
     {
         IDLE,
         SENDING,
         PUT_RX
     };
 
-    enum TransferMode
+    enum class TransferMode
     {
         LEGACY_BASE64,
         FAST_BINARY
     };
 
-    enum CommandType
+    enum class CommandType
     {
         LIST,
         GET,
@@ -86,7 +86,7 @@ namespace
         int length;
 
         Cmd():
-            type(INVALID),
+            type(CommandType::INVALID),
             arg{},
             n(0),
             length(0)
@@ -115,8 +115,8 @@ namespace
             totalChunks(0),
             windowSize(1),
             chunkSize(LEGACY_RAW_CHUNK_SIZE),
-            mode(LEGACY_BASE64),
-            state(IDLE)
+            mode(TransferMode::LEGACY_BASE64),
+            state(TxState::IDLE)
         {}
     };
 
@@ -147,7 +147,7 @@ namespace
             putSequence(0),
             putExpectedSize(0),
             putExpectedCRC(0),
-            putMode(LEGACY_BASE64),
+            putMode(TransferMode::LEGACY_BASE64),
             putChunkSize(LEGACY_RAW_CHUNK_SIZE),
             bleConnectionId(0),
             blePeerMTU(DEFAULT_MTU_SIZE),
@@ -218,18 +218,47 @@ namespace
     int Base64Decode(uint8_t* out, const char* in, size_t len)
     {
         static uint8_t lut[256];
-        static bool init=false; if(!init){
-            const char* p=BASE64_KEY; for(int i=0;i<64;i++) lut[(uint8_t)p[i]]=i; init=true;
+        static bool init = false;
+
+        if (!init)
+        {
+            const char* p = BASE64_KEY;
+            for (int j = 0; j < 64; j++)
+            {
+                lut[(uint8_t)p[j]] = j;
+            }
+            init = true;
         }
-        int i=0,o=0; while(i<len){
-            uint32_t v = lut[(uint8_t)in[i++]]<<18 |
-                        lut[(uint8_t)in[i++]]<<12 |
-                        lut[(uint8_t)in[i++]]<< 6 |
-                        lut[(uint8_t)in[i++]];
-            out[o++] = (v>>16)&0xFF;
-            if(in[i-2]!='=') out[o++] = (v>>8)&0xFF;
-            if(in[i-1]!='=') out[o++] =  v     &0xFF;
+
+        size_t i = 0;
+        int o = 0;
+
+        while (i + 3 < len)
+        {
+            char c0 = in[i++];
+            char c1 = in[i++];
+            char c2 = in[i++];
+            char c3 = in[i++];
+
+            uint32_t v =
+                ((uint32_t)lut[(uint8_t)c0] << 18) |
+                ((uint32_t)lut[(uint8_t)c1] << 12) |
+                ((uint32_t)lut[(uint8_t)c2] <<  6) |
+                ((uint32_t)lut[(uint8_t)c3]);
+
+            out[o++] = (v >> 16) & 0xFF;
+
+            if (c2 != '=')
+            {
+                out[o++] = (v >> 8) & 0xFF;
+            }
+
+            if (c3 != '=')
+            {
+                out[o++] = v & 0xFF;
+            }
         }
+
         return o;
     }
 
@@ -428,40 +457,40 @@ namespace
         Cmd cmd = {};
         if (line == "LIST")
         {
-            cmd.type = LIST;
+            cmd.type = CommandType::LIST;
         }
         else if (line.startsWith("GET_FAST,"))
         {
-            cmd.type = GET_FAST;
+            cmd.type = CommandType::GET_FAST;
             SetCmdArg(cmd, line.substring(9));
         }
         else if (line.startsWith("GET,"))
         {
-            cmd.type = GET;
+            cmd.type = CommandType::GET;
             SetCmdArg(cmd, line.substring(4));
         }
         else if (line.startsWith("ACK,"))
         {
-            cmd.type = ACK;
+            cmd.type = CommandType::ACK;
             cmd.n = line.substring(4).toInt();
         }
         else if (line.startsWith("RESEND,"))
         {
-            cmd.type = RESEND;
+            cmd.type = CommandType::RESEND;
             cmd.n = line.substring(7).toInt();
         }
         else if (line == "PURGE")
         {
-            cmd.type = PURGE;
+            cmd.type = CommandType::PURGE;
         }
         else if (line.startsWith("PUT_BEGIN_FAST,"))
         {
-            cmd.type = PUT_BEGIN_FAST;
+            cmd.type = CommandType::PUT_BEGIN_FAST;
             SetCmdArg(cmd, line.substring(15));
         }
         else if (line.startsWith("PUT_BEGIN,"))
         {
-            cmd.type = PUT_BEGIN;
+            cmd.type = CommandType::PUT_BEGIN;
             SetCmdArg(cmd, line.substring(10));
         }
         else if (line.startsWith("PUT_DATA,"))
@@ -471,13 +500,13 @@ namespace
             {
                 return;
             }
-            cmd.type = PUT_DATA;
+            cmd.type = CommandType::PUT_DATA;
             cmd.n = line.substring(9, comma).toInt();
             SetCmdArg(cmd, line.substring(comma + 1));
         }
         else if (line == "PUT_END")
         {
-            cmd.type = PUT_END;
+            cmd.type = CommandType::PUT_END;
         }
         else
         {
@@ -878,35 +907,39 @@ namespace
 
             switch(cmd.type)
             {
-                case LIST:
+                case CommandType::LIST:
                     HandleList();
                     break;
-                case GET:
+                case CommandType::GET:
                     HandleGet(cmd.arg, TransferMode::LEGACY_BASE64);
                     break;
-                case GET_FAST:
+                case CommandType::GET_FAST:
                     HandleGet(cmd.arg, TransferMode::FAST_BINARY);
                     break;
-                case ACK:
+                case CommandType::ACK:
                     HandleAck(cmd.n);
                     break;
-                case RESEND:
+                case CommandType::RESEND:
                     HandleResend(cmd.n);
                     break;
-                case PURGE:
+                case CommandType::PURGE:
                     HandlePurge();
                     break;
-                case PUT_BEGIN:
+                case CommandType::PUT_BEGIN:
                     HandlePutBegin(cmd.arg, TransferMode::LEGACY_BASE64);
                     break;
-                case PUT_BEGIN_FAST:
+                case CommandType::PUT_BEGIN_FAST:
                     HandlePutBegin(cmd.arg, TransferMode::FAST_BINARY);
                     break;
-                case PUT_DATA:
+                case CommandType::PUT_DATA:
                     HandlePutData(cmd);
                     break;
-                case PUT_END:
+                case CommandType::PUT_END:
                     HandlePutEnd();
+                    break;
+                case CommandType::INVALID: // <=== PASSTHROUGH
+                default:
+                    // Do nothing
                     break;
             }
         }
@@ -984,7 +1017,7 @@ namespace
                 if (type == BINARY_FRAME_TYPE_PUT_DATA)
                 {
                     Cmd cmd = {};
-                    cmd.type = PUT_DATA;
+                    cmd.type = CommandType::PUT_DATA;
                     cmd.n = seq;
                     SetCmdPayload(cmd, payload, payloadLen);
                     QueueCommand(cmd);
@@ -1050,7 +1083,7 @@ namespace BLE
     //------------------------------------------------------------------------
     void UpdateBLE(const Button::Mode& mode)
     {
-        if (mode == Button::VERY_LONG)
+        if (mode == Button::Mode::VERY_LONG)
         {
             if (!_data.bleAdvertising)
             {
@@ -1072,32 +1105,14 @@ namespace BLE
     }
 
     //------------------------------------------------------------------------
-    bool IsConnected()
+    BLE::Status GetStatus()
     {
-        return _data.bleConnected;
-    }
-
-    //------------------------------------------------------------------------
-    bool IsAdvertising()
-    {
-        return _data.bleAdvertising;
-    }
-
-    //------------------------------------------------------------------------
-    unsigned GetFileCount()
-    {
-        return _data.totalFiles;
-    }
-
-    //------------------------------------------------------------------------
-    unsigned GetCurrentFileNumber()
-    {
-        return _data.currentFileNumber;
-    }
-
-    //------------------------------------------------------------------------
-    bool IsSending()
-    {
-        return _data.currentlySending;
+        return {
+            _data.bleConnected,
+            _data.bleAdvertising,
+            _data.currentlySending,
+            static_cast<unsigned>(_data.totalFiles),
+            static_cast<unsigned>(_data.currentFileNumber)
+        };
     }
 }

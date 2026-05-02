@@ -6,7 +6,7 @@
 
 namespace GPS
 {
-    enum FixType
+    enum class FixType
     {
         NO_FIX              = 0,
         DEAD_RECKONING      = 1,
@@ -54,7 +54,7 @@ namespace GPS
         FixData() :
             speed(0.0),
             altitude(0.0),
-            fixType(NO_FIX),
+            fixType(FixType::NO_FIX),
             satelliteCount(0),
             dateTime(),
             valid(false)

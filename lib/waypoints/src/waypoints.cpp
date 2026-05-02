@@ -29,20 +29,11 @@ namespace
         {}
     };
 
-    // Current Lap Number (1 index)
-    uint8_t _lapNumber = 1;
-
-    // Current active sector
-    uint8_t _currentSector;
-
     // Array of all 3 sector waypoints to be used in lap timing
     WayPoints::TrackedWaypoints _trackWaypoints;
 
     // Array of the 2 most recent coordinate locations
     WayPoints::RecentLocations _storedLocations;
-
-    // Boolean for the first lap flag
-    bool _firstLap = false;
 
     // Collection of session distance information
     SessionDistance _sessionDisInfo;
@@ -55,6 +46,8 @@ namespace
     // for the session
     constexpr double MIN_SPEED_MPH = 0.5;
 
+    constexpr double ORIENTATION_EPSILON = 1e-12;
+
     //------------------------------------------------------------------------
     // Calculates the physical orientation using a formula found on GeeksForGeeks
     int Orientation(WayPoints::Coord p1, WayPoints::Coord p2, WayPoints::Coord p3)
@@ -62,7 +55,7 @@ namespace
         double val = (p2.lng - p1.lng) * (p3.lat - p1.lat) -
                      (p2.lat - p1.lat) * (p3.lng - p1.lng);
 
-        if (val == 0.0)   // collinear
+        if (fabs(val) < ORIENTATION_EPSILON)   // collinear
             return 0;
         else if (val > 0) // clockwise
             return 1;
@@ -96,7 +89,7 @@ namespace
         double avgLatRadians = ((p1.lat + p2.lat) * 0.5) * WayPoints::DEG_TO_RADIANS;
         double x = (p2.lng - p1.lng) * WayPoints::DEG_TO_RADIANS * cos(avgLatRadians);
         double y = (p2.lat - p1.lat) * WayPoints::DEG_TO_RADIANS;
-        return sqrt((x * x) + (y * y) * WayPoints::EARTH_RADIUS_FT);
+        return sqrt((x * x) + (y * y)) * WayPoints::EARTH_RADIUS_FT;
     }
 }
 
@@ -106,7 +99,7 @@ namespace
 namespace WayPoints
 {
     //------------------------------------------------------------------------
-    void StoreCurrentLocation(WayPoints::Coord& point)
+    void StoreCurrentLocation(const WayPoints::Coord& point)
     {
         // back() is the previous location. front() is the current.
         // So the front becomes the back, and the current becomes the front.

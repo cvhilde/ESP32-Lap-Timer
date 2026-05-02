@@ -28,11 +28,17 @@ void loop() {
     // Grab the button mode.
     const Button::Mode mode(Button::PollButtonAction());
 
-    // Grab latest fixData
-    const GPS::FixData& fixData(GPS::GetFixData());
+    // Grab latest ESP32 state
+    Display::StatusSnapshot status
+    {
+        GPS::GetFixData(),
+        Storage::GetSessionMode(),
+        Storage::StorageUsage(),
+        BLE::GetStatus()
+    };
 
     // Screen updates can be done even if fix data is not valid.
-    Display::UpdateScreen(fixData);
+    Display::UpdateScreen(status);
 
     // Update BLE. Still allow pairing and other BLE logic even with
     // no fix.
@@ -41,7 +47,7 @@ void loop() {
     // Perform rest of loop at set refresh rate.
     if (Storage::ShouldUpdateLoop()) {
         // Only update session logic when there is atleast a 2D fix.
-        if (fixData.fixType > GPS::DEAD_RECKONING) {
+        if (status.fixData.valid) {
 
             // Only stop the blink once, to avoid stopping other blinks.
             if (ledFlag) {
@@ -50,7 +56,7 @@ void loop() {
             }
 
             // Update session logic
-            Storage::UpdateSession(fixData, mode);
+            Storage::UpdateSession(status.fixData, mode);
 
         // No valid fx. Only start the blink once.
         } else {

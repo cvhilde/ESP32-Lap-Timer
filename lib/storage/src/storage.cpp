@@ -86,7 +86,7 @@ namespace
             routeLogFrequency(5U),
             lapLogFrequency(10U),
             lastUpdateTime(0U),
-            sessionType(Storage::LAP_TIMING),
+            sessionType(Storage::DEFAULT_SESSION_TYPE),
             currentLogFile(""),
             currentTimeLogFile(""),
             currentSummaryFile(""),
@@ -154,11 +154,11 @@ namespace
         }
 
         const char* type;
-        if (sessionType == Storage::LAP_TIMING)
+        if (sessionType == Storage::SessionType::LAP_TIMING)
         {
             type = "lap";
         }
-        else if (sessionType == Storage::ROUTE_TRACKING)
+        else if (sessionType == Storage::SessionType::ROUTE_TRACKING)
         {
             type = "route";
         }
@@ -225,7 +225,7 @@ namespace
             File logFile  = SPIFFS.open(_sessionData.currentLogFile, FILE_WRITE);
             File timeFile = SPIFFS.open(_sessionData.currentTimeLogFile, FILE_WRITE);
             File manifest = SPIFFS.open(Storage::MANIFEST_FILE, FILE_APPEND);
-            if (!logFile || timeFile || !manifest)
+            if (!logFile || !timeFile || !manifest)
             {
                 // Failed to write to manifest, meaning the session will
                 // never be transferred to the app. Or the time/log file 
@@ -251,6 +251,7 @@ namespace
 
             Led::TurnLedOn();
 
+            _lapData.firstLap          = true;
             _sessionData.sessionActive = true;
         }
     }
@@ -269,8 +270,8 @@ namespace
         // to log what lap you are on.
         unsigned currentLapNumber = _lapData.lapNumber + 1;
 
-        char string[CSV_LINE_LIMIT];
-        int size = snprintf(string, sizeof(string), "%.7lf,%.7lf,%.2lf,%lu, %d\n",
+        char line[CSV_LINE_LIMIT];
+        int written = snprintf(line, sizeof(line), "%.7lf,%.7lf,%.2lf,%lu, %d\n",
                             data.coord.lat,
                             data.coord.lng,
                             data.speed,
@@ -278,16 +279,21 @@ namespace
                             currentLapNumber
         );
 
-        if (_ramData.logPosition + size > RAM_LIMIT_BYTES)
-        {
-            FlushRamToFlash();
+        size_t bytes = static_cast<size_t>(written);
 
-            // Don't write it to memory if the line is corrupted.
-            if (size < 0 || size >= sizeof(string)) return;
+        // Don't write it to memory if the line is corrupted.
+        if (written < 0 || bytes >= sizeof(line))
+        {
+            return;
         }
 
-        memcpy(_ramData.logBuffer + _ramData.logPosition, string, size);
-        _ramData.logPosition += size;
+        if (_ramData.logPosition + bytes > RAM_LIMIT_BYTES)
+        {
+            FlushRamToFlash();
+        }
+
+        memcpy(_ramData.logBuffer + _ramData.logPosition, line, bytes);
+        _ramData.logPosition += bytes;
     }
 
     //------------------------------------------------------------------------
@@ -326,7 +332,7 @@ namespace
     void EndLapSession()
     {
         FlushRamToFlash();
-        WriteSessionSummary(Storage::LAP_TIMING);
+        WriteSessionSummary(Storage::SessionType::LAP_TIMING);
         _sessionData.currentSummaryFile = "";
         _lapData.lapNumber = 0;
 
@@ -400,8 +406,8 @@ namespace
 
         WayPoints::UpdateSessionDistance(data.coord, data.speed);
 
-        char string[CSV_LINE_LIMIT];
-        int size = snprintf(string, sizeof(string), "%.7lf,%.7lf,%.2lf,%.2lf,%lu\n",
+        char line[CSV_LINE_LIMIT];
+        int written = snprintf(line, sizeof(line), "%.7lf,%.7lf,%.2lf,%.2lf,%lu\n",
                             data.coord.lat,
                             data.coord.lng,
                             data.speed,
@@ -409,23 +415,28 @@ namespace
                             millis() - _ramData.logTimeBegin
         );
 
-        if (_ramData.logPosition + size > RAM_LIMIT_BYTES)
-        {
-            FlushRamToFlash();
+        size_t bytes = static_cast<size_t>(written);
 
-            // Don't write it to memory if the line is corrupted.
-            if (size < 0 || size >= sizeof(string)) return;
+        // Don't write it to memory if the line is corrupted.
+        if (written < 0 || bytes >= sizeof(line))
+        {
+            return;
         }
 
-        memcpy(_ramData.logBuffer + _ramData.logPosition, string, size);
-        _ramData.logPosition += size;
+        if (_ramData.logPosition + bytes > RAM_LIMIT_BYTES)
+        {
+            FlushRamToFlash();
+        }
+
+        memcpy(_ramData.logBuffer + _ramData.logPosition, line, bytes);
+        _ramData.logPosition += bytes;
     }
 
     //------------------------------------------------------------------------
     void EndRouteSession()
     {
         FlushRamToFlash();
-        WriteSessionSummary(Storage::ROUTE_TRACKING);
+        WriteSessionSummary(Storage::SessionType::ROUTE_TRACKING);
         _sessionData.currentSummaryFile = "";
 
         Led::TurnLedOff();
@@ -479,18 +490,20 @@ namespace Storage
     //------------------------------------------------------------------------
     void UpdateSession(const GPS::FixData& data, const Button::Mode& mode)
     {
+        WayPoints::StoreCurrentLocation(data.coord);
+
         // Short button press is related to start/stopping session logic
-        if (mode == Button::SHORT)
+        if (mode == Button::Mode::SHORT)
         {
             // No session is active, start a new one
             if (!_sessionData.sessionActive)
             {
                 switch (_sessionData.sessionType)
                 {
-                    case LAP_TIMING:
+                    case Storage::SessionType::LAP_TIMING:
                         StartLapSession(data.dateTime);
                         break;
-                    case ROUTE_TRACKING:
+                    case Storage::SessionType::ROUTE_TRACKING:
                         StartRouteSession(data.dateTime);
                         break;
                     default:
@@ -503,10 +516,10 @@ namespace Storage
             {
                 switch (_sessionData.sessionType)
                 {
-                case LAP_TIMING:
+                case Storage::SessionType::LAP_TIMING:
                     EndLapSession();
                     break;
-                case ROUTE_TRACKING:
+                case Storage::SessionType::ROUTE_TRACKING:
                     EndRouteSession();
                     break;
                 default:
@@ -516,15 +529,15 @@ namespace Storage
             }
         }
         // Long button press is related to switching session type.
-        else if (mode == Button::LONG)
+        else if (mode == Button::Mode::LONG)
         {
             switch (_sessionData.sessionType)
             {
-                case LAP_TIMING:
-                    _sessionData.sessionType = ROUTE_TRACKING;
+                case Storage::SessionType::LAP_TIMING:
+                    _sessionData.sessionType = Storage::SessionType::ROUTE_TRACKING;
                     break;
-                case ROUTE_TRACKING:
-                    _sessionData.sessionType = LAP_TIMING;
+                case Storage::SessionType::ROUTE_TRACKING:
+                    _sessionData.sessionType = Storage::SessionType::LAP_TIMING;
                     break;
                 default:
                     // Invalid sessionType. Do nothing
@@ -537,10 +550,10 @@ namespace Storage
         {
             switch (_sessionData.sessionType)
             {
-                case LAP_TIMING:
+                case Storage::SessionType::LAP_TIMING:
                     WriteToLogFile(data);
                     break;
-                case ROUTE_TRACKING:
+                case Storage::SessionType::ROUTE_TRACKING:
                     WriteToRouteLog(data);
                     break;
                 default:
@@ -550,7 +563,7 @@ namespace Storage
 
         // Handle the sector waypoint crossing logic. This is only ran
         // for lap timing mode. Route tracking just logs the position.
-        if (_sessionData.sessionActive && _sessionData.sessionType == LAP_TIMING)
+        if (_sessionData.sessionActive && _sessionData.sessionType == Storage::SessionType::LAP_TIMING)
         {
             if (WayPoints::WaypointCrossed(_lapData.currentSector))
             {
@@ -629,7 +642,7 @@ namespace Storage
 
         WayPoints::TrackedWaypoints waypoints;
 
-        DynamicJsonDocument doc(1024);
+        JsonDocument doc;
         DeserializationError err(deserializeJson(doc, waypointsFile));
         waypointsFile.close();
 
@@ -701,7 +714,12 @@ namespace Storage
     //------------------------------------------------------------------------
     bool PurgeFlash()
     {
-        return SPIFFS.format();
+        SPIFFS.end();
+
+        bool purged = SPIFFS.format();
+        bool mounted = SPIFFS.begin(false);
+
+        return purged && mounted;
     }
 
     //------------------------------------------------------------------------
@@ -709,15 +727,15 @@ namespace Storage
     {
         File file;
 
-        if (mode = "r")
+        if (strcmp(mode, "r") == 0)
         {
             file = SPIFFS.open(name, FILE_READ);
         }
-        else if (mode = "w")
+        else if (strcmp(mode, "w") == 0)
         {
             file = SPIFFS.open(name, FILE_WRITE);
         }
-        else if (mode = "a")
+        else if (strcmp(mode, "a") == 0)
         {
             file = SPIFFS.open(name, FILE_APPEND);
         }
@@ -740,11 +758,16 @@ namespace Storage
         size_t total = SPIFFS.totalBytes();   // size of the SPIFFS partition
         size_t used  = SPIFFS.usedBytes();    // how much is already occupied
 
+        if (total == 0)
+        {
+            return 0.0;
+        }
+
         return (used * 100.0) / total;
     }
 
     //------------------------------------------------------------------------
-    const SessionType GetSessionMode()
+    SessionType GetSessionMode()
     {
         return _sessionData.sessionType;
     }
@@ -757,10 +780,10 @@ namespace Storage
 
         switch (_sessionData.sessionType)
         {
-            case LAP_TIMING:
+            case Storage::SessionType::LAP_TIMING:
                 updateTime = 1000U / _sessionData.lapLogFrequency;
                 break;
-            case ROUTE_TRACKING:
+            case Storage::SessionType::ROUTE_TRACKING:
                 updateTime = 1000U / _sessionData.routeLogFrequency;
                 break;
             default:

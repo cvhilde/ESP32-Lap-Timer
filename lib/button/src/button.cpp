@@ -9,6 +9,9 @@
 #include <Arduino.h>
 #include <button.h>
 
+//----------------------------------------------------------------------------
+// Private namespace
+//----------------------------------------------------------------------------
 namespace
 {
     struct ButtonPersistent
@@ -26,26 +29,34 @@ namespace
 
     ButtonPersistent _logicState;
 
-    const unsigned long DEBOUNCE_TIME = 300;
+    constexpr unsigned DEBOUNCE_TIME = 300U;
 
-    const unsigned long LOWER_LIMIT = 3000;
+    constexpr unsigned LOWER_LIMIT = 3000U;
 
-    const unsigned long UPPER_LIMIT = 6000;
+    constexpr unsigned UPPER_LIMIT = 6000U;
 }
 
+//----------------------------------------------------------------------------
+// Public namespace
+//----------------------------------------------------------------------------
 namespace Button
 {
+    //------------------------------------------------------------------------
     void InitializeButton()
     {
         pinMode(BUTTON_PIN, INPUT_PULLUP);
     }
 
+    //------------------------------------------------------------------------
     Mode PollButtonAction()
     {
         unsigned long buttonPressDuration(0);
         bool beginButtonLogic(false);
-        Mode MODE(NONE);
+        Mode MODE(Mode::NONE);
 
+        // The button could be held down before boot up.
+        // Therefore, grab the first millis() reading without checking
+        // the previous state.
         if (!_logicState.initialized)
         {
             bool currentState(digitalRead(BUTTON_PIN));
@@ -79,16 +90,16 @@ namespace Button
             if (        buttonPressDuration >= DEBOUNCE_TIME
                      && buttonPressDuration <  LOWER_LIMIT)
             {
-                MODE = SHORT;
+                MODE = Mode::SHORT;
             }
             else if (   buttonPressDuration >= LOWER_LIMIT
                      && buttonPressDuration <  UPPER_LIMIT)
             {
-                MODE = LONG;
+                MODE = Mode::LONG;
             }
             else if (   buttonPressDuration >= UPPER_LIMIT)
             {
-                MODE = VERY_LONG;
+                MODE = Mode::VERY_LONG;
             }
         }
 

@@ -12,6 +12,7 @@
 #include <Wire.h>
 #include <storage.h>
 #include <ble.h>
+#include <display_assets.h>
 
 //----------------------------------------------------------------------------
 // Private namespace
@@ -45,21 +46,20 @@ namespace
     void PermDraws()
     {
         _display.clear();
-        _display.drawXbm(120, 4, 8, 8, Display::satelliteBitmap);
+        _display.drawXbm(120, 4, 8, 8, DisplayAssets::satelliteBitmap);
         _display.display();
     }
 
     //------------------------------------------------------------------------
-	void DrawCurrentMode()
+	void DrawCurrentMode(const Storage::SessionType mode)
     {
-        const Storage::SessionType mode(Storage::GetSessionMode());
         char line[2];
 
         _display.setColor(BLACK);
         _display.fillRect(100, 16, 28, 16);
         _display.setColor(WHITE);
 
-        if (mode == Storage::LAP_TIMING)
+        if (mode == Storage::SessionType::LAP_TIMING)
         {
             sprintf(line, "L");
             _display.setTextAlignment(TEXT_ALIGN_RIGHT);
@@ -67,7 +67,7 @@ namespace
             _display.setTextAlignment(TEXT_ALIGN_LEFT);
             _display.drawCircle(116, 24, 8);
         }
-        else if (mode == Storage::ROUTE_TRACKING)
+        else if (mode == Storage::SessionType::ROUTE_TRACKING)
         {
             sprintf(line, "R");
             _display.fillCircle(116, 24, 8);
@@ -96,7 +96,7 @@ namespace Display
 
         if (initialized)
         {
-            _display.setFont(Display::Roboto_Light_14);
+            _display.setFont(DisplayAssets::Roboto_Light_14);
             _display.drawString(34, 4, "Lap Timer");
             _display.drawString(58, 30, "By");
             _display.drawString(7, 48, "Carter Hildebrandt");
@@ -110,43 +110,59 @@ namespace Display
     }
 
     //------------------------------------------------------------------------
-	void UpdateScreen(const GPS::FixData& data)
+	void UpdateScreen(const StatusSnapshot& status)
     {
         if (millis() - _lastDrawTime > SCREEN_REFRESH_RATE)
         {
             _lastDrawTime = millis();
 
-            DrawCurrentMode();
+            DrawCurrentMode(status.mode);
 
             char line1[30];
             String gpsStatus = "";
-            int fixType = data.fixType;
 
-            if (fixType == 0 || fixType == 1)
-                gpsStatus = "No Fix";
-            else if (fixType == 2)
-                gpsStatus = "Poor";
-            else if (fixType == 3)
-                gpsStatus = "Good";
-            else if (fixType > 3)
-                gpsStatus = "Great";
+            switch (status.fixData.fixType)
+            {
+                case GPS::FixType::NO_FIX: // <== PASSTHROUGH
+                case GPS::FixType::DEAD_RECKONING:
+                    gpsStatus = "No Fix";
+                    break;
+                case GPS::FixType::TWO_D:
+                    gpsStatus = "Poor";
+                    break;
+                case GPS::FixType::THREE_D: // <== PASSTHROUGH
+                case GPS::FixType::GNSS_DEAD_RECKONING:
+                    gpsStatus = "Good";
+                    break;
+                case GPS::FixType::TIME_ONLY:
+                    gpsStatus = "Time Only";
+                    break;
+                default:
+                    gpsStatus = "No GPS";
+                    break;
+            }
 
             sprintf(line1, "GPS: %s", gpsStatus.c_str());
 
             char subLine1[10];
-            sprintf(subLine1, "%d", data.satelliteCount);
+            sprintf(subLine1, "%d", status.fixData.satelliteCount);
 
             char line2[30];
-            sprintf(line2, "Storage: %.2f%%", Storage::StorageUsage());
+            sprintf(line2, "Storage: %.2f%%", status.storageUsage);
 
             char line3[30];
             String bleStatus = "";
 
-            if (BLE::IsAdvertising()) {
+            if (status.bleStatus.advertising)
+            {
                 bleStatus = "Advertising";
-            } else if (BLE::IsConnected()) {
+            }
+            else if
+            (status.bleStatus.connected) {
                 bleStatus = "Connected";
-            } else {
+            }
+            else
+            {
                 bleStatus = "Idle";
             }
             sprintf(line3, "BLE: %s", bleStatus.c_str());
@@ -154,12 +170,12 @@ namespace Display
             _display.setColor(BLACK);
             _display.fillRect(0, 48, 128, 16);
 
-            if (BLE::IsSending()) {
-                int totalFiles = BLE::GetFileCount();
-                int currentFile = BLE::GetCurrentFileNumber();
-
+            if (status.bleStatus.sending)
+            {
                 char line4[30];
-                sprintf(line4, "Transfer File %d/%d", currentFile, totalFiles);
+                sprintf(line4, "Transfer File %d/%d",
+                    status.bleStatus.currentFileNumber,
+                    status.bleStatus.fileCount);
 
                 _display.setColor(WHITE);
                 _display.drawString(0, 48, line4);

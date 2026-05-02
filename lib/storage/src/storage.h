@@ -7,7 +7,7 @@
 
 namespace Storage
 {
-    enum SessionType
+    enum class SessionType
     {
         LAP_TIMING,
         ROUTE_TRACKING
@@ -26,6 +26,8 @@ namespace Storage
     const String ROUTE_LOG_PREFIX = "/route_";
 
     const String FILE_TYPE = ".csv";
+
+    constexpr SessionType DEFAULT_SESSION_TYPE = SessionType::LAP_TIMING;
 
     bool InitializeStorage();
 
@@ -47,7 +49,7 @@ namespace Storage
 
     double StorageUsage();
 
-    const SessionType GetSessionMode();
+    SessionType GetSessionMode();
 
     bool ShouldUpdateLoop();
 };

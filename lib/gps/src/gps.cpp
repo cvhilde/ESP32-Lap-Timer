@@ -64,7 +64,7 @@ namespace GPS
 
         FixType fix = static_cast<FixType>(_gps.getFixType());
 
-        if (fix >= DEAD_RECKONING && fix <= GNSS_DEAD_RECKONING)
+        if (fix >= FixType::DEAD_RECKONING && fix <= FixType::GNSS_DEAD_RECKONING)
         {
             _fixData.coord.lat = _gps.getLatitude()    * LAT_LONG_TO_DEGREES;
             _fixData.coord.lng = _gps.getLongitude()   * LAT_LONG_TO_DEGREES;
@@ -81,7 +81,7 @@ namespace GPS
             _fixData.dateTime.valid = true;
             _fixData.valid          = true;
         }
-        else if (fix == TIME_ONLY)
+        else if (fix == FixType::TIME_ONLY)
         {
             _fixData.dateTime.year   = _gps.getYear();
             _fixData.dateTime.month  = _gps.getMonth();

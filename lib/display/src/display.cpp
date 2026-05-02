@@ -11,6 +11,7 @@
 #include "HT_SSD1306Wire.h"
 #include <Wire.h>
 #include <storage.h>
+#include <ble.h>
 
 //----------------------------------------------------------------------------
 // Private namespace
@@ -141,9 +142,9 @@ namespace Display
             char line3[30];
             String bleStatus = "";
 
-            if (isAdvertising()) {
+            if (BLE::IsAdvertising()) {
                 bleStatus = "Advertising";
-            } else if (isConnected()) {
+            } else if (BLE::IsConnected()) {
                 bleStatus = "Connected";
             } else {
                 bleStatus = "Idle";
@@ -153,9 +154,9 @@ namespace Display
             _display.setColor(BLACK);
             _display.fillRect(0, 48, 128, 16);
 
-            if (isSending()) {
-                int totalFiles = getFileCount();
-                int currentFile = getCurrentFileNumber();
+            if (BLE::IsSending()) {
+                int totalFiles = BLE::GetFileCount();
+                int currentFile = BLE::GetCurrentFileNumber();
 
                 char line4[30];
                 sprintf(line4, "Transfer File %d/%d", currentFile, totalFiles);

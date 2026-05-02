@@ -66,7 +66,7 @@ namespace WayPoints
     bool WaypointCrossed(const unsigned currentSector);
 
     // Gets the session distance.
-    const SessionDistance& GetSessionDistance();
+    const SessionDistance GetSessionDistance();
 
     const TrackedWaypoints& GetTrackWaypoints();
 

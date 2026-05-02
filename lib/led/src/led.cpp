@@ -34,7 +34,7 @@ namespace
     uint32_t _blinkOffDurationMs = 500;
 
     // Physical LED pin on the ESP32
-    constexpr uint8_t LED_PIN = 36;
+    constexpr uint8_t LED_PIN = 47;
 
     //------------------------------------------------------------------------
     // Event bus for blinking the LED using Ticker.
@@ -53,7 +53,7 @@ namespace
     }
 
     //------------------------------------------------------------------------
-    // Similar even bus as OnBlink(), but instead after the first 'tick', calls
+    // Similar event bus as OnBlink(), but instead after the first 'tick', calls
     // StopBlink() to stop the blinking event.
     void IRAM_ATTR OnOneShotBlinkComplete()
     {

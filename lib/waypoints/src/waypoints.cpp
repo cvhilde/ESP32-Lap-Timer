@@ -153,7 +153,7 @@ namespace WayPoints
                && DoIntersect(_storedLocations.back(), _storedLocations.front(), currentWaypoint));
     }
 
-    const SessionDistance& GetSessionDistance()
+    const SessionDistance GetSessionDistance()
     {
         SessionDistance distance;
 

@@ -16,11 +16,13 @@ namespace
         // true is pressed, false is released
         bool prev;
 
+        bool initialized;
+
         // in milliseconds
         unsigned long pressStart;
     };
 
-    constexpr uint8_t BUTTON_PIN = 46;
+    constexpr uint8_t BUTTON_PIN = 48;
 
     ButtonPersistent _logicState;
 
@@ -33,12 +35,26 @@ namespace
 
 namespace Button
 {
-    const Mode& PollButtonAction()
+    Mode PollButtonAction()
     {
         unsigned long buttonPressDuration(0);
         bool beginButtonLogic(false);
         bool currentState(digitalRead(BUTTON_PIN));
         Mode MODE(NONE);
+
+        if (!_logicState.initialized)
+        {
+            _logicState.prev = currentState;
+
+            if (currentState == LOW)
+            {
+                _logicState.pressStart = millis();
+            }
+
+            _logicState.initialized = true;
+
+            return MODE;
+        }
 
         if (_logicState.prev == HIGH && currentState == LOW)
         {
@@ -68,6 +84,8 @@ namespace Button
                 MODE = VERY_LONG;
             }
         }
+
+        _logicState.prev = currentState;
 
         return MODE;
     }

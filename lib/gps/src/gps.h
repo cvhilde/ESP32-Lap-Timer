@@ -6,6 +6,16 @@
 
 namespace GPS
 {
+    enum FixType
+    {
+        NO_FIX              = 0,
+        DEAD_RECKONING      = 1,
+        TWO_D               = 2,
+        THREE_D             = 3,
+        GNSS_DEAD_RECKONING = 4,
+        TIME_ONLY           = 5
+    };
+
     // Contains all data relating to the date and time
     struct GPSTimeData
     {
@@ -33,7 +43,7 @@ namespace GPS
         WayPoints::Coord coord;
         double speed;     // mph
         double altitude;  // feet
-        uint8_t fixType;
+        FixType fixType;
         uint8_t satelliteCount;
         GPSTimeData dateTime;
 
@@ -44,7 +54,7 @@ namespace GPS
         FixData() :
             speed(0.0),
             altitude(0.0),
-            fixType(0),
+            fixType(NO_FIX),
             satelliteCount(0),
             dateTime(),
             valid(false)

@@ -8,10 +8,10 @@
 ///===========================================================================
 
 #include <storage.h>
-#include <FS.h>
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 #include <led.h>
+#include <vector>
 
 //----------------------------------------------------------------------------
 // Private namespace
@@ -32,11 +32,6 @@ namespace
     constexpr unsigned long FAILED_SESSION_BLINK_INTERVAL = 500U;
 
     constexpr unsigned long WAYPOINT_CROSSING_JITTER = 5000U;
-
-    // Static waypoints.json location
-    const String WAYPOINTS_FILE = "/waypoints.json";
-
-    const String MANIFEST_FILE = "/sessions.txt";
 
     // Data associated with the ram buffer
     struct RamData
@@ -105,23 +100,15 @@ namespace
         // Current lap number. This is the number of laps completed
         unsigned lapNumber;
 
-        unsigned currentSector;
-
+        unsigned      currentSector;
         unsigned long lastCrossTime;
-
         unsigned long lastLapTime;
-
         unsigned long currentLapTime;
-
         unsigned long lastSectorTime;
-
         unsigned long sector1Time;
-
         unsigned long sector2Time;
-
         unsigned long sector3Time;
-
-        bool firstLap;
+        bool          firstLap;
 
         LapTimingSessionInfo() :
             lapNumber(0),
@@ -145,6 +132,66 @@ namespace
 
     LapTimingSessionInfo _lapData;
 
+    std::vector<uint8_t> _waypointsBackup;
+
+
+    //------------------------------------------------------------------------
+    void WriteSessionSummary(Storage::SessionType sessionType)
+    {
+        // Summary file name was never updated. Don't create the file.
+        if (_sessionData.currentSummaryFile.isEmpty())
+        {
+            return;
+        }
+
+        File summaryFile = SPIFFS.open(_sessionData.currentSummaryFile, FILE_WRITE);
+        if (!summaryFile)
+        {
+            // File was unable to be created. Not a fatal event, so no need
+            // to signal to the user, but don't proceed with writing to the
+            // empty file pointer.
+            return;
+        }
+
+        const char* type;
+        if (sessionType == Storage::LAP_TIMING)
+        {
+            type = "lap";
+        }
+        else if (sessionType == Storage::ROUTE_TRACKING)
+        {
+            type = "route";
+        }
+
+        const WayPoints::SessionDistance& distance(WayPoints::GetSessionDistance());
+
+        summaryFile.println("SessionType,TotalDistanceFt,TotalDistanceMi");
+        summaryFile.printf("%s,%.2lf,%.5lf\n",
+                            type,
+                            distance.distanceFeet,
+                            distance.distanceMile
+        );
+
+        summaryFile.close();
+    }
+
+    //------------------------------------------------------------------------
+    void FlushRamToFlash()
+    {
+        if (_ramData.logPosition == 0)
+            return;
+
+        File logFile = SPIFFS.open(_sessionData.currentLogFile, FILE_APPEND);
+
+        if (logFile)
+        {
+            logFile.write((uint8_t*)_ramData.logBuffer, _ramData.logPosition);
+            logFile.close();
+        }
+
+        _ramData.logPosition = 0;
+    }
+
     //------------------------------------------------------------------------
     void StartLapSession(const GPS::GPSTimeData& time)
     {
@@ -160,13 +207,24 @@ namespace
             );
             _sessionData.currentTimeStamp = String(timestamp);
 
-            _sessionData.currentLogFile = "/log_" + _sessionData.currentTimeStamp + ".csv";
-            _sessionData.currentTimeLogFile = "/timestamps_" + _sessionData.currentTimeStamp + ".csv";
-            _sessionData.currentSummaryFile = "/summary_" + _sessionData.currentTimeStamp + ".csv";
+            _sessionData.currentLogFile
+                = Storage::LAP_LOG_PREFIX
+                    + _sessionData.currentTimeStamp
+                    + ".csv";
+
+            _sessionData.currentTimeLogFile
+                = Storage::LAP_TIMESTAMPS_PREFIX
+                    + _sessionData.currentTimeStamp
+                    + ".csv";
+
+            _sessionData.currentSummaryFile
+                = Storage::SUMMARY_PREFIX
+                    + _sessionData.currentTimeStamp
+                    + ".csv";
 
             File logFile  = SPIFFS.open(_sessionData.currentLogFile, FILE_WRITE);
             File timeFile = SPIFFS.open(_sessionData.currentTimeLogFile, FILE_WRITE);
-            File manifest = SPIFFS.open(MANIFEST_FILE, FILE_APPEND);
+            File manifest = SPIFFS.open(Storage::MANIFEST_FILE, FILE_APPEND);
             if (!logFile || timeFile || !manifest)
             {
                 // Failed to write to manifest, meaning the session will
@@ -268,7 +326,7 @@ namespace
     void EndLapSession()
     {
         FlushRamToFlash();
-        WriteSessionSummary("lap");
+        WriteSessionSummary(Storage::LAP_TIMING);
         _sessionData.currentSummaryFile = "";
         _lapData.lapNumber = 0;
 
@@ -293,11 +351,18 @@ namespace
             );
             _sessionData.currentTimeStamp = String(timestamp);
 
-            _sessionData.currentLogFile = "/route_" + _sessionData.currentTimeStamp + ".csv";
-            _sessionData.currentSummaryFile = "/summary_" + _sessionData.currentTimeStamp + ".csv";
+            _sessionData.currentLogFile
+                = Storage::ROUTE_LOG_PREFIX
+                    + _sessionData.currentTimeStamp
+                    + ".csv";
+
+            _sessionData.currentSummaryFile
+                = Storage::SUMMARY_PREFIX
+                    + _sessionData.currentTimeStamp
+                    + ".csv";
 
             File routeFile = SPIFFS.open(_sessionData.currentLogFile, FILE_WRITE);
-            File manifest  = SPIFFS.open(MANIFEST_FILE, FILE_APPEND);
+            File manifest  = SPIFFS.open(Storage::MANIFEST_FILE, FILE_APPEND);
             if (!routeFile || !manifest)
             {
                 // Failed to write to manifest, meaning the session will
@@ -360,60 +425,13 @@ namespace
     void EndRouteSession()
     {
         FlushRamToFlash();
-        WriteSessionSummary("route");
+        WriteSessionSummary(Storage::ROUTE_TRACKING);
         _sessionData.currentSummaryFile = "";
 
         Led::TurnLedOff();
         Led::StartOneShotBlink(END_SESSION_BLINK_INTERVAL, END_SESSION_BLINK_INTERVAL * 4);
 
         _sessionData.sessionActive = false;
-    }
-
-    //------------------------------------------------------------------------
-    void WriteSessionSummary(const char* sessionType)
-    {
-        // Summary file name was never updated. Don't create the file.
-        if (_sessionData.currentSummaryFile.isEmpty())
-        {
-            return;
-        }
-
-        File summaryFile = SPIFFS.open(_sessionData.currentSummaryFile, FILE_WRITE);
-        if (!summaryFile)
-        {
-            // File was unable to be created. Not a fatal event, so no need
-            // to signal to the user, but don't proceed with writing to the
-            // empty file pointer.
-            return;
-        }
-
-        const WayPoints::SessionDistance& distance(WayPoints::GetSessionDistance());
-
-        summaryFile.println("SessionType,TotalDistanceFt,TotalDistanceMi");
-        summaryFile.printf("%s,%.2lf,%.5lf\n",
-                            sessionType,
-                            distance.distanceFeet,
-                            distance.distanceMile
-        );
-
-        summaryFile.close();
-    }
-
-    //------------------------------------------------------------------------
-    void FlushRamToFlash()
-    {
-        if (_ramData.logPosition == 0)
-            return;
-
-        File logFile = SPIFFS.open(_sessionData.currentLogFile, FILE_APPEND);
-
-        if (logFile)
-        {
-            logFile.write((uint8_t*)_ramData.logBuffer, _ramData.logPosition);
-            logFile.close();
-        }
-
-        _ramData.logPosition = 0;
     }
 }
 
@@ -581,6 +599,23 @@ namespace Storage
     }
 
     //------------------------------------------------------------------------
+    bool BackupWaypoints()
+    {
+        bool exists(false);
+
+        if (SPIFFS.exists(WAYPOINTS_FILE))
+        {
+            File file = SPIFFS.open(WAYPOINTS_FILE, FILE_READ);
+            _waypointsBackup.resize(file.size());
+            file.readBytes((char*)_waypointsBackup.data(), _waypointsBackup.size());
+            file.close();
+            exists = true;
+        }
+
+        return exists;
+    }
+
+    //------------------------------------------------------------------------
     bool LoadWaypoints()
     {
         File waypointsFile = SPIFFS.open(WAYPOINTS_FILE, FILE_READ);
@@ -644,6 +679,15 @@ namespace Storage
     }
 
     //------------------------------------------------------------------------
+    void LoadBackedupWaypoints()
+    {
+        File file = SPIFFS.open(WAYPOINTS_FILE, FILE_WRITE);
+        file.write(_waypointsBackup.data(), _waypointsBackup.size());
+        file.close();
+        Storage::LoadWaypoints();
+    }
+
+    //------------------------------------------------------------------------
     void WriteWaypointsFile(const uint8_t* raw, size_t len)
     {
         File waypointsFile = SPIFFS.open(WAYPOINTS_FILE, FILE_WRITE);
@@ -652,6 +696,42 @@ namespace Storage
         waypointsFile.close();
 
         LoadWaypoints();
+    }
+
+    //------------------------------------------------------------------------
+    bool PurgeFlash()
+    {
+        return SPIFFS.format();
+    }
+
+    //------------------------------------------------------------------------
+    fs::File GetFile(const String& name, const char *mode)
+    {
+        File file;
+
+        if (mode = "r")
+        {
+            file = SPIFFS.open(name, FILE_READ);
+        }
+        else if (mode = "w")
+        {
+            file = SPIFFS.open(name, FILE_WRITE);
+        }
+        else if (mode = "a")
+        {
+            file = SPIFFS.open(name, FILE_APPEND);
+        }
+        else
+        {
+            // Invalid mode called. Do nothing
+        }
+
+        return file;
+    }
+
+    bool FileExists(const String& name)
+    {
+        return SPIFFS.exists(name);
     }
 
     //------------------------------------------------------------------------

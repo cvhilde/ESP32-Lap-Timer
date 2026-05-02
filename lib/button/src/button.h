@@ -11,7 +11,7 @@ namespace Button
         VERY_LONG
     };
 
-    const Mode& PollButtonAction();
+    Mode PollButtonAction();
 }
 
 #endif

@@ -62,9 +62,9 @@ namespace GPS
 
         _gps.checkUblox();
 
-        uint8_t fix = _gps.getFixType();
+        FixType fix = static_cast<FixType>(_gps.getFixType());
 
-        if (fix >= 2 && fix <= 4)
+        if (fix >= DEAD_RECKONING && fix <= GNSS_DEAD_RECKONING)
         {
             _fixData.coord.lat = _gps.getLatitude()    * LAT_LONG_TO_DEGREES;
             _fixData.coord.lng = _gps.getLongitude()   * LAT_LONG_TO_DEGREES;
@@ -81,7 +81,7 @@ namespace GPS
             _fixData.dateTime.valid = true;
             _fixData.valid          = true;
         }
-        else if (fix == 5)
+        else if (fix == TIME_ONLY)
         {
             _fixData.dateTime.year   = _gps.getYear();
             _fixData.dateTime.month  = _gps.getMonth();

@@ -4,8 +4,9 @@
 #include <ble.h>
 #include <button.h>
 #include <led.h>
+#include <prefs.h>
 
-bool ledFlag = true;
+bool ledFlag = false;
 
 void setup() {
     Serial.begin(115200);
@@ -13,6 +14,7 @@ void setup() {
     Led::InitializeLed();
 
     Led::StartBlink(250U);
+    Prefs::InitializePrefs();
     Display::InitializeDisplay();
     Storage::InitializeStorage();
     GPS::InitializeUBLOX();
@@ -43,6 +45,9 @@ void loop() {
     // Update BLE. Still allow pairing and other BLE logic even with
     // no fix.
     BLE::UpdateBLE(mode);
+
+    // Update the session type
+    Storage::UpdateSessionType(mode);
 
     // Perform rest of loop at set refresh rate.
     if (Storage::ShouldUpdateLoop()) {

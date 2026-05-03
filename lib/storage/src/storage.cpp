@@ -12,6 +12,7 @@
 #include <SPIFFS.h>
 #include <led.h>
 #include <vector>
+#include <prefs.h>
 
 //----------------------------------------------------------------------------
 // Private namespace
@@ -28,8 +29,11 @@ namespace
     constexpr size_t NUMBER_OF_SECTORS = 3;
 
     // Constants for LED logic
-    constexpr unsigned long END_SESSION_BLINK_INTERVAL = 250U;
+    constexpr unsigned long END_SESSION_BLINK_INTERVAL    = 250U;
     constexpr unsigned long FAILED_SESSION_BLINK_INTERVAL = 500U;
+
+    constexpr unsigned SESSION_TYPE_CHANGE_INTERVAL = 100U;
+    constexpr unsigned SESSION_TYPE_CHANGE_LENGTH   = 500U;
 
     // Constant for the amount of time that must pass before another waypoint
     // crossing is detected
@@ -85,10 +89,10 @@ namespace
 
         SessionInfo() :
             sessionActive(false),
-            routeLogFrequency(5U),
-            lapLogFrequency(10U),
+            routeLogFrequency(Prefs::DEFAULT_ROUTE_FREQUENCY),
+            lapLogFrequency(Prefs::DEFAULT_LAP_FREQUENCY),
             lastUpdateTime(0U),
-            sessionType(Storage::DEFAULT_SESSION_TYPE),
+            sessionType(Prefs::DEFAULT_SESSION_TYPE),
             currentLogFile(""),
             currentTimeLogFile(""),
             currentSummaryFile(""),
@@ -460,6 +464,8 @@ namespace Storage
 
         if (success)
         {
+            _sessionData.sessionType = Prefs::GetConfig().sessionType;
+
             if (!LoadWaypoints()) {
                 // Wasn't able to load the waypoints for whatever reason.
                 // This could mean a couple of different things, so just use default
@@ -487,6 +493,33 @@ namespace Storage
         }
 
         return success;
+    }
+
+    //------------------------------------------------------------------------
+    void UpdateSessionType(const Button::Mode& mode)
+    {
+        // Long button press is related to switching session type.
+        if (mode == Button::Mode::LONG)
+        {
+            switch (_sessionData.sessionType)
+            {
+                case Storage::SessionType::LAP_TIMING:
+                    _sessionData.sessionType = Storage::SessionType::ROUTE_TRACKING;
+                    break;
+                case Storage::SessionType::ROUTE_TRACKING:
+                    _sessionData.sessionType = Storage::SessionType::LAP_TIMING;
+                    break;
+                default:
+                    // Invalid sessionType. Do nothing
+                    break;
+            }
+
+            Led::StartOneShotBlink(SESSION_TYPE_CHANGE_INTERVAL,
+                SESSION_TYPE_CHANGE_LENGTH);
+
+            // Update the persistant session type
+            Prefs::SetSessionType(_sessionData.sessionType);
+        }
     }
 
     //------------------------------------------------------------------------
@@ -528,22 +561,6 @@ namespace Storage
                     // Invalid sessionType. Do nothing
                     break;
                 }
-            }
-        }
-        // Long button press is related to switching session type.
-        else if (mode == Button::Mode::LONG)
-        {
-            switch (_sessionData.sessionType)
-            {
-                case Storage::SessionType::LAP_TIMING:
-                    _sessionData.sessionType = Storage::SessionType::ROUTE_TRACKING;
-                    break;
-                case Storage::SessionType::ROUTE_TRACKING:
-                    _sessionData.sessionType = Storage::SessionType::LAP_TIMING;
-                    break;
-                default:
-                    // Invalid sessionType. Do nothing
-                    break;
             }
         }
 

@@ -16,14 +16,12 @@ namespace Storage
     // Constants relating to the storage prefixes for sessions
     const String MANIFEST_FILE = "/sessions.txt";
     const String WAYPOINTS_FILE = "/waypoints.json";
+    const String SESSION_PERSIST_FILE = "/mode.txt";
     const String LAP_LOG_PREFIX = "/log_";
     const String LAP_TIMESTAMPS_PREFIX = "/timestamps_";
     const String SUMMARY_PREFIX = "/summary_";
     const String ROUTE_LOG_PREFIX = "/route_";
     const String FILE_TYPE = ".csv";
-
-    // Default session type when starting the device
-    constexpr SessionType DEFAULT_SESSION_TYPE = SessionType::LAP_TIMING;
 
     // Initialize the storage and SPIFFS partition
     bool InitializeStorage();
@@ -32,6 +30,11 @@ namespace Storage
     // and give new information to the current session. It will also perform
     // the session sector crossing logic.
     void UpdateSession(const GPS::FixData& data, const Button::Mode& mode);
+
+    // Updates the current session type outside of the UpdateSession logic.
+    // This allows session type to be changed even when there is no fix
+    // available from the GPS.
+    void UpdateSessionType(const Button::Mode& mode);
 
     // Backs up the waypoints file if it exists. This is so it doesn't get lost
     // when the purge is performed.

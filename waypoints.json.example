@@ -1,4 +1,5 @@
 {
+  "trackname": "Example-Track-Name",
   "waypoints": [
     {
       "name": "start_finish",

@@ -74,6 +74,10 @@ namespace
         // Current file name of the time log file
         String currentTimeLogFile;
 
+        // Current waypoints.json track name for use in storing log
+        // files. This should be updated whenever LoadWaypoints is called.
+        String currentTrackName;
+
         // Current file name of the summary file. This is not created at session
         // start. This variable is updated at the start of a session to keep track
         // of the date/time the session was started so the file may be
@@ -198,29 +202,43 @@ namespace
         if (time.valid)
         {
             char timestamp[25];
-            sprintf(timestamp, "%04d%02d%02d_%02d%02d",
+            sprintf(timestamp, "%04d%02d%02d_%02d%02d%02d",
                                 time.year,
                                 time.month,
                                 time.day,
                                 time.hour,
-                                time.minute
+                                time.minute,
+                                time.second
             );
             _sessionData.currentTimeStamp = String(timestamp);
 
-            _sessionData.currentLogFile
-                = Storage::LAP_LOG_PREFIX
-                    + _sessionData.currentTimeStamp
-                    + ".csv";
+            // log_YYYYMMDD_HHmmss.csv
+            // log_track-name_YYYYMMDD_HHmmss.csv
+            if (!_sessionData.currentTrackName.isEmpty())
+            {
+                _sessionData.currentLogFile
+                    = Storage::LAP_LOG_PREFIX
+                        + _sessionData.currentTrackName + "_"
+                        + _sessionData.currentTimeStamp
+                        + Storage::FILE_TYPE;
+            }
+            else
+            {
+                _sessionData.currentLogFile
+                    = Storage::LAP_LOG_PREFIX
+                        + _sessionData.currentTimeStamp
+                        + Storage::FILE_TYPE;
+            }
 
             _sessionData.currentTimeLogFile
                 = Storage::LAP_TIMESTAMPS_PREFIX
                     + _sessionData.currentTimeStamp
-                    + ".csv";
+                    + Storage::FILE_TYPE;
 
             _sessionData.currentSummaryFile
                 = Storage::SUMMARY_PREFIX
                     + _sessionData.currentTimeStamp
-                    + ".csv";
+                    + Storage::FILE_TYPE;
 
             File logFile  = SPIFFS.open(_sessionData.currentLogFile, FILE_WRITE);
             File timeFile = SPIFFS.open(_sessionData.currentTimeLogFile, FILE_WRITE);
@@ -348,24 +366,25 @@ namespace
         if (time.valid)
         {
             char timestamp[25];
-            sprintf(timestamp, "%04d%02d%02d_%02d%02d",
+            sprintf(timestamp, "%04d%02d%02d_%02d%02d%02d",
                                 time.year,
                                 time.month,
                                 time.day,
                                 time.hour,
-                                time.minute
+                                time.minute,
+                                time.second
             );
             _sessionData.currentTimeStamp = String(timestamp);
 
             _sessionData.currentLogFile
                 = Storage::ROUTE_LOG_PREFIX
                     + _sessionData.currentTimeStamp
-                    + ".csv";
+                    + Storage::FILE_TYPE;
 
             _sessionData.currentSummaryFile
                 = Storage::SUMMARY_PREFIX
                     + _sessionData.currentTimeStamp
-                    + ".csv";
+                    + Storage::FILE_TYPE;
 
             File routeFile = SPIFFS.open(_sessionData.currentLogFile, FILE_WRITE);
             File manifest  = SPIFFS.open(Storage::MANIFEST_FILE, FILE_APPEND);
@@ -700,6 +719,7 @@ namespace Storage
             waypoints.at(i).isActive = wp["active"] | 1;
         }
 
+        _sessionData.currentTrackName = doc["trackname"] | "";
         WayPoints::SetTrackWaypoints(waypoints);
         return true;
     }

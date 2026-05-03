@@ -103,10 +103,11 @@ namespace Display
             _display.drawString(7, 48, "Carter Hildebrandt");
             _display.display();
             delay(5000);
-
-            PermDraws();
+            // CHANGE 1: Replaced PermDraws() with a clean clear so the screen
+            // is blank until UpdateScreen() runs after all hardware is ready.
+            _display.clear();
+            _display.display();
         }
-
         return initialized;
     }
 
@@ -116,6 +117,15 @@ namespace Display
         if (millis() - _lastDrawTime > SCREEN_REFRESH_RATE)
         {
             _lastDrawTime = millis();
+
+            // CHANGE 2: Fix for issue #15 — PermDraws is now called once on
+            // the first UpdateScreen tick, after GPS and BLE have initialized.
+            static bool permDrawsDone = false;
+            if (!permDrawsDone)
+            {
+                PermDraws();
+                permDrawsDone = true;
+            }
 
             DrawCurrentMode(status.mode);
 

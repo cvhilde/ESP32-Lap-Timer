@@ -1,6 +1,19 @@
+///===========================================================================
+///
+/// prefs.cpp
+///
+/// This file contains logic for interfacing with the NVS partition, allowing
+/// easy storage of configuration values that won't be erased from flash
+/// during a purge event.
+///
+///===========================================================================
+
 #include <prefs.h>
 #include <Preferences.h>
 
+//----------------------------------------------------------------------------
+// Private namespace
+//----------------------------------------------------------------------------
 namespace
 {
     constexpr const char* PREF_NAMESPACE = "config";
@@ -9,6 +22,7 @@ namespace
     Preferences _prefs;
     Prefs::Config _config;
 
+    //------------------------------------------------------------------------
     bool IsValidSessionType(Storage::SessionType type)
     {
         return type == Storage::SessionType::LAP_TIMING ||
@@ -16,8 +30,12 @@ namespace
     }
 }
 
+//----------------------------------------------------------------------------
+// Public Prefs namespace
+//----------------------------------------------------------------------------
 namespace Prefs
 {
+    //------------------------------------------------------------------------
     void InitializePrefs()
     {
         if (!_prefs.begin(PREF_NAMESPACE, true))
@@ -45,11 +63,13 @@ namespace Prefs
         _prefs.end();
     }
 
+    //------------------------------------------------------------------------
     const Config& GetConfig()
     {
         return _config;
     }
 
+    //------------------------------------------------------------------------
     void SetSessionType(Storage::SessionType type)
     {
         if (!IsValidSessionType(type) || _config.sessionType == type)

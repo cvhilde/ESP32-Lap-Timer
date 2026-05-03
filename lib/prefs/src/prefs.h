@@ -11,20 +11,31 @@ namespace Prefs
     constexpr unsigned DEFAULT_LAP_FREQUENCY = 10U;
     constexpr unsigned DEFAULT_ROUTE_FREQUENCY = 5U;
 
+    constexpr unsigned MAX_FREQUENCY = 25U;
+    constexpr unsigned MIN_FREQUENCY = 1U;
+
     struct Config
     {
         Storage::SessionType sessionType;
+        unsigned lapLogHz;
+        unsigned routeLogHz;
 
         Config():
-            sessionType(Prefs::DEFAULT_SESSION_TYPE)
+            sessionType(Prefs::DEFAULT_SESSION_TYPE),
+            lapLogHz(DEFAULT_LAP_FREQUENCY),
+            routeLogHz(DEFAULT_ROUTE_FREQUENCY)
         {}
     };
 
     void InitializePrefs();
 
-    const Config& GetConfig();
+    const Config& PersistConfig();
 
     void SetSessionType(Storage::SessionType type);
+
+    void SetLapLogFrequency(unsigned hz);
+
+    void SetRouteLogFrequency(unsigned hz);
 };
 
 #endif

@@ -63,10 +63,6 @@ namespace
         // Is session active
         bool sessionActive;
 
-        unsigned routeLogFrequency;
-
-        unsigned lapLogFrequency;
-
         unsigned long lastUpdateTime;
 
         // Default to lap timing mode
@@ -89,8 +85,6 @@ namespace
 
         SessionInfo() :
             sessionActive(false),
-            routeLogFrequency(Prefs::DEFAULT_ROUTE_FREQUENCY),
-            lapLogFrequency(Prefs::DEFAULT_LAP_FREQUENCY),
             lastUpdateTime(0U),
             sessionType(Prefs::DEFAULT_SESSION_TYPE),
             currentLogFile(""),
@@ -464,7 +458,7 @@ namespace Storage
 
         if (success)
         {
-            _sessionData.sessionType = Prefs::GetConfig().sessionType;
+            _sessionData.sessionType = Prefs::PersistConfig().sessionType;
 
             if (!LoadWaypoints()) {
                 // Wasn't able to load the waypoints for whatever reason.
@@ -800,10 +794,10 @@ namespace Storage
         switch (_sessionData.sessionType)
         {
             case Storage::SessionType::LAP_TIMING:
-                updateTime = 1000U / _sessionData.lapLogFrequency;
+                updateTime = 1000U / Prefs::PersistConfig().lapLogHz;
                 break;
             case Storage::SessionType::ROUTE_TRACKING:
-                updateTime = 1000U / _sessionData.routeLogFrequency;
+                updateTime = 1000U / Prefs::PersistConfig().routeLogHz;
                 break;
             default:
                 updateTime = 1000U;

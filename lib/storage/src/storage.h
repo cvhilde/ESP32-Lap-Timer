@@ -16,7 +16,6 @@ namespace Storage
     // Constants relating to the storage prefixes for sessions
     const String MANIFEST_FILE = "/sessions.txt";
     const String WAYPOINTS_FILE = "/waypoints.json";
-    const String SESSION_PERSIST_FILE = "/mode.txt";
     const String LAP_LOG_PREFIX = "/log_";
     const String LAP_TIMESTAMPS_PREFIX = "/timestamps_";
     const String SUMMARY_PREFIX = "/summary_";

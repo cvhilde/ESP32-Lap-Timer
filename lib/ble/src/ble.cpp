@@ -20,6 +20,7 @@
 #include <vector>
 #include <storage.h>
 #include <led.h>
+#include <prefs.h>
 
 //----------------------------------------------------------------------------
 // Private namespace
@@ -85,6 +86,9 @@ namespace
         PUT_BEGIN_FAST,
         PUT_DATA,
         PUT_END,
+        SET_LAP_HZ,
+        SET_ROUTE_HZ,
+        BAD_HZ,
         INVALID
     };
 
@@ -371,6 +375,40 @@ namespace
     }
 
     //------------------------------------------------------------------------
+    bool ParsePositiveUInt(const String& value, unsigned& parsed)
+    {
+        String trimmed = value;
+        trimmed.trim();
+
+        if (trimmed.isEmpty())
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < trimmed.length(); i++)
+        {
+            if (!isDigit(trimmed[i]))
+            {
+                return false;
+            }
+        }
+
+        unsigned long raw = strtoul(trimmed.c_str(), nullptr, 10);
+        if (raw == 0)
+        {
+            return false;
+        }
+
+        if (raw > Prefs::MAX_FREQUENCY)
+        {
+            raw = Prefs::MAX_FREQUENCY;
+        }
+
+        parsed = static_cast<unsigned>(raw);
+        return true;
+    }
+
+    //------------------------------------------------------------------------
     uint16_t ReadLE16(const uint8_t* src)
     {
         return static_cast<uint16_t>(src[0]) |
@@ -524,6 +562,32 @@ namespace
         else if (line == "PUT_END")
         {
             cmd.type = CommandType::PUT_END;
+        }
+        else if (line.startsWith("SET_LAP_HZ,"))
+        {
+            unsigned hz = 0;
+            if (!ParsePositiveUInt(line.substring(11), hz))
+            {
+                cmd.type = CommandType::BAD_HZ;
+            }
+            else
+            {
+                cmd.type = CommandType::SET_LAP_HZ;
+                cmd.n = hz;
+            }
+        }
+        else if (line.startsWith("SET_ROUTE_HZ,"))
+        {
+            unsigned hz = 0;
+            if (!ParsePositiveUInt(line.substring(13), hz))
+            {
+                cmd.type = CommandType::BAD_HZ;
+            }
+            else
+            {
+                cmd.type = CommandType::SET_ROUTE_HZ;
+                cmd.n = hz;
+            }
         }
         else
         {
@@ -790,6 +854,20 @@ namespace
     }
 
     //------------------------------------------------------------------------
+    void HandleSetLapHz(unsigned hz)
+    {
+        Prefs::SetLapLogFrequency(hz);
+        TxLine("LAP_HZ," + String(Prefs::PersistConfig().lapLogHz) + "\n");
+    }
+
+    //------------------------------------------------------------------------
+    void HandleSetRouteHz(unsigned hz)
+    {
+        Prefs::SetRouteLogFrequency(hz);
+        TxLine("ROUTE_HZ," + String(Prefs::PersistConfig().routeLogHz) + "\n");
+    }
+
+    //------------------------------------------------------------------------
     void HandlePutBegin(const String& meta, TransferMode mode)
     {
         int comma = meta.indexOf(',');
@@ -953,6 +1031,15 @@ namespace
                     break;
                 case CommandType::PUT_END:
                     HandlePutEnd();
+                    break;
+                case CommandType::SET_LAP_HZ:
+                    HandleSetLapHz(cmd.n);
+                    break;
+                case CommandType::SET_ROUTE_HZ:
+                    HandleSetRouteHz(cmd.n);
+                    break;
+                case CommandType::BAD_HZ:
+                    TxLine("ERR,BAD_HZ\n");
                     break;
                 case CommandType::INVALID: // <=== PASSTHROUGH
                 default:

@@ -16,11 +16,13 @@
 //----------------------------------------------------------------------------
 namespace
 {
-    constexpr const char* PREF_NAMESPACE = "config";
+    constexpr const char* PREF_NAMESPACE   = "config";
     constexpr const char* SESSION_TYPE_KEY = "session";
+    constexpr const char* LAP_FREQ_KEY     = "lapHz";
+    constexpr const char* ROUTE_FREQ_KEY   = "routeHz";
 
     Preferences _prefs;
-    Prefs::Config _config;
+    Prefs::Config _persistantConfig;
 
     //------------------------------------------------------------------------
     bool IsValidSessionType(Storage::SessionType type)
@@ -53,39 +55,87 @@ namespace Prefs
 
         if (IsValidSessionType(sessionType))
         {
-            _config.sessionType = sessionType;
+            _persistantConfig.sessionType = sessionType;
         }
         else
         {
-            _config.sessionType = DEFAULT_SESSION_TYPE;
+            _persistantConfig.sessionType = DEFAULT_SESSION_TYPE;
         }
+
+        _persistantConfig.lapLogHz =
+            _prefs.getUInt(LAP_FREQ_KEY, DEFAULT_LAP_FREQUENCY);
+
+        _persistantConfig.routeLogHz =
+            _prefs.getUInt(ROUTE_FREQ_KEY, DEFAULT_ROUTE_FREQUENCY);
 
         _prefs.end();
     }
 
     //------------------------------------------------------------------------
-    const Config& GetConfig()
+    const Config& PersistConfig()
     {
-        return _config;
+        return _persistantConfig;
     }
 
     //------------------------------------------------------------------------
     void SetSessionType(Storage::SessionType type)
     {
-        if (!IsValidSessionType(type) || _config.sessionType == type)
+        if (!IsValidSessionType(type) || _persistantConfig.sessionType == type)
         {
             return;
         }
-
-        _config.sessionType = type;
 
         if (!_prefs.begin(PREF_NAMESPACE, false))
         {
             return;
         }
 
+        _persistantConfig.sessionType = type;
+
         _prefs.putUChar(SESSION_TYPE_KEY, static_cast<uint8_t>(type));
         _prefs.end();
 
+    }
+
+    //------------------------------------------------------------------------
+    void SetLapLogFrequency(unsigned hz)
+    {
+        unsigned hzToStore(constrain(hz, MIN_FREQUENCY, MAX_FREQUENCY));
+
+        if (hzToStore == _persistantConfig.lapLogHz)
+        {
+            return;
+        }
+
+        if (!_prefs.begin(PREF_NAMESPACE, false))
+        {
+            return;
+        }
+
+        _persistantConfig.lapLogHz = hzToStore;
+
+        _prefs.putUInt(LAP_FREQ_KEY, hzToStore);
+        _prefs.end();
+    }
+
+    //------------------------------------------------------------------------
+    void SetRouteLogFrequency(unsigned hz)
+    {
+        unsigned hzToStore(constrain(hz, MIN_FREQUENCY, MAX_FREQUENCY));
+
+        if (hzToStore == _persistantConfig.routeLogHz)
+        {
+            return;
+        }
+
+        if (!_prefs.begin(PREF_NAMESPACE, false))
+        {
+            return;
+        }
+
+        _persistantConfig.routeLogHz = hzToStore;
+
+        _prefs.putUInt(ROUTE_FREQ_KEY, hzToStore);
+        _prefs.end();
     }
 }

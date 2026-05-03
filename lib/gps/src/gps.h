@@ -6,6 +6,7 @@
 
 namespace GPS
 {
+    // Possible fix types that this gps can return
     enum class FixType
     {
         NO_FIX              = 0,
@@ -38,6 +39,7 @@ namespace GPS
         {}
     };
 
+    // Collection of all the data the gps returns
     struct FixData
     {
         WayPoints::Coord coord;

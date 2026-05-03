@@ -138,6 +138,7 @@ namespace WayPoints
         _sessionDisInfo.sessionDistanceFt += segmentFt;
     }
 
+    //------------------------------------------------------------------------
     bool WaypointCrossed(const unsigned currentSector)
     {
         const WayPoint& currentWaypoint(_trackWaypoints.at(currentSector));
@@ -146,6 +147,7 @@ namespace WayPoints
                && DoIntersect(_storedLocations.back(), _storedLocations.front(), currentWaypoint));
     }
 
+    //------------------------------------------------------------------------
     const SessionDistance GetSessionDistance()
     {
         SessionDistance distance;
@@ -156,15 +158,15 @@ namespace WayPoints
         return distance;
     }
 
+    //------------------------------------------------------------------------
     const TrackedWaypoints& GetTrackWaypoints()
     {
         return _trackWaypoints;
     }
 
+    //------------------------------------------------------------------------
     void SetTrackWaypoints(const TrackedWaypoints& waypoints)
     {
         _trackWaypoints = waypoints;
     }
 }
-
-

@@ -2,7 +2,8 @@
 ///
 /// ble.cpp
 ///
-/// TODO: Implement file description
+/// Implements BLE UART setup, advertising/status handling, and command-based
+/// file transfer for log downloads, storage purge, and waypoint uploads.
 ///
 ///===========================================================================
 
@@ -25,19 +26,24 @@
 //----------------------------------------------------------------------------
 namespace
 {
+    // BLE UUID constance
     constexpr char SERVICE_UUID[]           = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
     constexpr char CHARACTERISTIC_UUID_RX[] = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";
     constexpr char CHARACTERISTIC_UUID_TX[] = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
 
+    // Base64 code string
     constexpr char     BASE64_KEY[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
+    // Constants for cmd size and default MTU's
     constexpr size_t   CMD_SIZE         = 256;
     constexpr uint16_t DESIRED_MTU_SIZE = 247;
     constexpr uint16_t DEFAULT_MTU_SIZE = 23;
 
+    // Constants for legacy BLE transfers
     constexpr size_t   LEGACY_RAW_CHUNK_SIZE = 180;
     constexpr uint32_t LEGACY_TX_WINDOW      = 4;
 
+    // Constants for the fast/binary BLE transfers
     constexpr uint8_t  BINARY_FRAME_MARKER        = 0xA5;
     constexpr uint8_t  BINARY_FRAME_TYPE_DATA     = 0x01;
     constexpr uint8_t  BINARY_FRAME_TYPE_PUT_DATA = 0x02;
@@ -45,11 +51,13 @@ namespace
     constexpr uint32_t BINARY_TX_WINDOW           = 8;
     constexpr uint32_t BINARY_PUT_ACK_INTERVAL    = 4;
 
+    // Constants for BLE advertising button/led logic
     constexpr unsigned ADVERTISING_LED_INTERVAL     = 1000U;
     constexpr unsigned ADVERTISING_TIMEOUT_INTERVAL = 200U;
     constexpr unsigned ADVERTISING_TIMEOUT_DURATION = 1000U;
     constexpr unsigned ADVERTISING_TIMEOUT          = 60000U;
 
+    // BLE receiver/transceiver status
     enum class TxState
     {
         IDLE,
@@ -57,12 +65,14 @@ namespace
         PUT_RX
     };
 
+    // Transfer type
     enum class TransferMode
     {
         LEGACY_BASE64,
         FAST_BINARY
     };
 
+    // Command type
     enum class CommandType
     {
         LIST,
@@ -78,6 +88,7 @@ namespace
         INVALID
     };
 
+    // All information associated with a command
     struct Cmd
     {
         CommandType type;
@@ -93,6 +104,7 @@ namespace
         {}
     };
 
+    // All information associated with a file transfer
     struct Tx
     {
         File file;
@@ -120,6 +132,7 @@ namespace
         {}
     };
 
+    // Persistent data store for BLE
     struct Data
     {
         std::vector<uint8_t> putBuffer;
@@ -160,20 +173,24 @@ namespace
         {}
     };
 
+    // Persistent data store for current file transfer
     Tx _tx;
 
+    // Persistent data store for BLE logic
     Data _data;
 
-    BLEServer *pServer = nullptr;
+    // BLEServer object
+    BLEServer *_BLEServer = nullptr;
 
-    BLECharacteristic *pTxChar = nullptr;
+    // BLE broadcast characteristics
+    BLECharacteristic *_TxChar = nullptr;
 
     //------------------------------------------------------------------------
     void StartAdvertising()
     {
         if (!_data.bleAdvertising && !_data.bleConnected)
         {
-            pServer->getAdvertising()->start();
+            _BLEServer->getAdvertising()->start();
             _data.bleAdvertising = true;
         }
     }
@@ -183,7 +200,7 @@ namespace
     {
         if (_data.bleAdvertising)
         {
-            pServer->getAdvertising()->stop();
+            _BLEServer->getAdvertising()->stop();
             _data.bleAdvertising = false;
         }
     }
@@ -275,8 +292,8 @@ namespace
     //------------------------------------------------------------------------
     void TxLine(const String &s)
     {
-        pTxChar->setValue((uint8_t*)s.c_str(), s.length());
-        pTxChar->notify();
+        _TxChar->setValue((uint8_t*)s.c_str(), s.length());
+        _TxChar->notify();
     }
 
     //------------------------------------------------------------------------
@@ -319,8 +336,8 @@ namespace
             memcpy(frame.data() + BINARY_FRAME_HEADER_SIZE, payload, payloadLen);
         }
 
-        pTxChar->setValue(frame.data(), frame.size());
-        pTxChar->notify();
+        _TxChar->setValue(frame.data(), frame.size());
+        _TxChar->notify();
     }
 
     //------------------------------------------------------------------------
@@ -1061,14 +1078,14 @@ namespace BLE
     {
         BLEDevice::init("ESP32_LapTimer");
         BLEDevice::setMTU(DESIRED_MTU_SIZE);
-        pServer = BLEDevice::createServer();
-        pServer->setCallbacks(new ServerCB());
-        BLEService *svc = pServer->createService(SERVICE_UUID);
+        _BLEServer = BLEDevice::createServer();
+        _BLEServer->setCallbacks(new ServerCB());
+        BLEService *svc = _BLEServer->createService(SERVICE_UUID);
 
-        pTxChar = svc->createCharacteristic(CHARACTERISTIC_UUID_TX,
+        _TxChar = svc->createCharacteristic(CHARACTERISTIC_UUID_TX,
             BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_READ);
 
-        pTxChar->addDescriptor(new BLE2902);
+        _TxChar->addDescriptor(new BLE2902);
 
         BLECharacteristic *rx = svc->createCharacteristic(CHARACTERISTIC_UUID_RX,
             BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);

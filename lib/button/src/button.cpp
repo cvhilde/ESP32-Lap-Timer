@@ -2,7 +2,7 @@
 ///
 /// button.cpp
 ///
-/// TODO: Implement file description
+/// Button input initialization and press-duration classification.
 ///
 ///===========================================================================
 
@@ -25,15 +25,16 @@ namespace
         unsigned long pressStart;
     };
 
+    // Physical button pin. For the V3.2
     constexpr uint8_t BUTTON_PIN = 46;
 
-    ButtonPersistent _logicState;
-
+    // Constants relating to the press times to determine the Mode
     constexpr unsigned DEBOUNCE_TIME = 300U;
-
     constexpr unsigned LOWER_LIMIT = 3000U;
-
     constexpr unsigned UPPER_LIMIT = 6000U;
+
+    // Persistent datastore for button logic
+    ButtonPersistent _logicState;
 }
 
 //----------------------------------------------------------------------------

@@ -51,6 +51,7 @@ namespace WayPoints
     // Constant for converting degrees to radians.
     constexpr double DEG_TO_RADIANS = 0.017453292519943295;
 
+    // Consts for convering from/to miles/feet
     constexpr double FEET_PER_MILE = 5280.0;
 
     // Function that will store the current gps location, and shift
@@ -63,13 +64,17 @@ namespace WayPoints
     // Updates the session distance counter.
     void UpdateSessionDistance(const Coord& coord, const double speed);
 
+    // Returns a boolean determining the passed in sector was crossed
+    // within the past frame.
     bool WaypointCrossed(const unsigned currentSector);
 
     // Gets the session distance.
     const SessionDistance GetSessionDistance();
 
+    // Gets a reference to the tracked waypoints.
     const TrackedWaypoints& GetTrackWaypoints();
 
+    // Sets the tracked waypoints.
     void SetTrackWaypoints(const TrackedWaypoints& waypoints);
 };
 

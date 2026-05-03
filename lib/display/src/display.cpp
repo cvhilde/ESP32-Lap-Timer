@@ -23,6 +23,7 @@ namespace
     // actual onboard OLED display.
     SSD1306Wire _display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
 
+    // Display refresh rate in milliseconds
     constexpr unsigned long SCREEN_REFRESH_RATE = 1000U;
 
     // Pin for the display power.

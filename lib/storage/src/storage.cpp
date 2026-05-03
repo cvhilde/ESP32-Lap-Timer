@@ -27,10 +27,12 @@ namespace
     // Number of sectors to use for all logic
     constexpr size_t NUMBER_OF_SECTORS = 3;
 
+    // Constants for LED logic
     constexpr unsigned long END_SESSION_BLINK_INTERVAL = 250U;
-
     constexpr unsigned long FAILED_SESSION_BLINK_INTERVAL = 500U;
 
+    // Constant for the amount of time that must pass before another waypoint
+    // crossing is detected
     constexpr unsigned long WAYPOINT_CROSSING_JITTER = 5000U;
 
     // Data associated with the ram buffer
@@ -697,7 +699,7 @@ namespace Storage
         File file = SPIFFS.open(WAYPOINTS_FILE, FILE_WRITE);
         file.write(_waypointsBackup.data(), _waypointsBackup.size());
         file.close();
-        Storage::LoadWaypoints();
+        LoadWaypoints();
     }
 
     //------------------------------------------------------------------------

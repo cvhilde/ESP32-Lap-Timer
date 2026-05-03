@@ -2,7 +2,8 @@
 ///
 /// display_assets.cpp
 ///
-/// TODO: Implement file description
+/// Holds constant display assets, such as fonts and bitmaps for custom
+/// symbols.
 ///
 ///===========================================================================
 

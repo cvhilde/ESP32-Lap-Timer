@@ -5,6 +5,7 @@
 
 namespace BLE
 {
+    // BLE status information with constructors
     struct Status
     {
         bool connected;
@@ -36,10 +37,15 @@ namespace BLE
         {}
     };
 
+    // Initialize BLE.
     void InitializeBLE();
 
+    // Update BLE status. Mainly used for determining
+    // whether to advertise or not based on button logic.
     void UpdateBLE(const Button::Mode& mode);
 
+    // Returns a snapshot of the BLE status needed for display
+    // updates.
     BLE::Status GetStatus();
 }
 

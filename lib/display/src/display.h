@@ -8,6 +8,7 @@
 
 namespace Display
 {
+	// All needed data for a display update
 	struct StatusSnapshot
 	{
 		GPS::FixData fixData;

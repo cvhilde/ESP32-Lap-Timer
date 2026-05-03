@@ -5,6 +5,7 @@
 #include <gps.h>
 #include <storage.h>
 #include <ble.h>
+#include <prefs.h>
 
 namespace Display
 {
@@ -29,7 +30,7 @@ namespace Display
 		{}
 
 		StatusSnapshot() :
-			mode(Storage::DEFAULT_SESSION_TYPE),
+			mode(Prefs::DEFAULT_SESSION_TYPE),
 			storageUsage(0.0)
 		{}
 	};

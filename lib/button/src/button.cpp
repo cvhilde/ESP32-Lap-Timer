@@ -29,9 +29,10 @@ namespace
     constexpr uint8_t BUTTON_PIN = 46;
 
     // Constants relating to the press times to determine the Mode
-    constexpr unsigned DEBOUNCE_TIME = 300U;
-    constexpr unsigned LOWER_LIMIT = 3000U;
-    constexpr unsigned UPPER_LIMIT = 6000U;
+    constexpr unsigned DEBOUNCE_TIME      = 100U;
+    constexpr unsigned LOWER_LIMIT        = 3000U;
+    constexpr unsigned UPPER_LIMIT        = 6000U;
+    constexpr unsigned RESET_SESSION_TYPE = 10000U;
 
     // Persistent datastore for button logic
     ButtonPersistent _logicState;
@@ -98,9 +99,14 @@ namespace Button
             {
                 MODE = Mode::LONG;
             }
-            else if (   buttonPressDuration >= UPPER_LIMIT)
+            else if (   buttonPressDuration >= UPPER_LIMIT
+                     && buttonPressDuration <  RESET_SESSION_TYPE)
             {
                 MODE = Mode::VERY_LONG;
+            }
+            else if (   buttonPressDuration >= RESET_SESSION_TYPE)
+            {
+                MODE = Mode::EXTRA_LONG;
             }
         }
 

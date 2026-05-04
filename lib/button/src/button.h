@@ -10,7 +10,8 @@ namespace Button
         NONE,
         SHORT,
         LONG,
-        VERY_LONG
+        VERY_LONG,
+        EXTRA_LONG
     };
 
     // Initalize Button Pin

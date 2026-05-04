@@ -49,6 +49,9 @@ void loop() {
     // Update the session type
     Storage::UpdateSessionType(mode);
 
+    // Update the session start/stopping
+    Storage::SessionStartStop(status.fixData, mode);
+
     // Perform rest of loop at set refresh rate.
     if (Storage::ShouldUpdateLoop()) {
         // Only update session logic when there is atleast a 2D fix.
@@ -61,7 +64,7 @@ void loop() {
             }
 
             // Update session logic
-            Storage::UpdateSession(status.fixData, mode);
+            Storage::UpdateSession(status.fixData);
 
         // No valid fx. Only start the blink once.
         } else {

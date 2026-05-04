@@ -25,10 +25,12 @@ namespace Storage
     // Initialize the storage and SPIFFS partition
     bool InitializeStorage();
 
-    // Updates the session logic. This function will start/stop sessions,
-    // and give new information to the current session. It will also perform
-    // the session sector crossing logic.
-    void UpdateSession(const GPS::FixData& data, const Button::Mode& mode);
+    // Determines when to start/stop sessions.
+    void SessionStartStop(const GPS::FixData& data, const Button::Mode mode);
+
+    // Updates the session logic, giving new information to the current
+    // session. It will also perform the session sector crossing logic.
+    void UpdateSession(const GPS::FixData& data);
 
     // Updates the current session type outside of the UpdateSession logic.
     // This allows session type to be changed even when there is no fix

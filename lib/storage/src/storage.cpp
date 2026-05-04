@@ -533,6 +533,16 @@ namespace Storage
             // Update the persistant session type
             Prefs::SetSessionType(_sessionData.sessionType);
         }
+        else if (mode == Button::Mode::EXTRA_LONG)
+        {
+            _sessionData.sessionType = Prefs::DEFAULT_SESSION_TYPE;
+
+            Led::StartOneShotBlink(SESSION_TYPE_CHANGE_INTERVAL,
+                SESSION_TYPE_CHANGE_LENGTH);
+
+            // Update the persistant session type
+            Prefs::SetSessionType(_sessionData.sessionType);
+        }
     }
 
     //------------------------------------------------------------------------

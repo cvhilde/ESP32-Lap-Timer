@@ -536,15 +536,13 @@ namespace Storage
     }
 
     //------------------------------------------------------------------------
-    void UpdateSession(const GPS::FixData& data, const Button::Mode& mode)
+    void SessionStartStop(const GPS::FixData& data, const Button::Mode mode)
     {
-        WayPoints::StoreCurrentLocation(data.coord);
-
         // Short button press is related to start/stopping session logic
         if (mode == Button::Mode::SHORT)
         {
             // No session is active, start a new one
-            if (!_sessionData.sessionActive)
+            if (!_sessionData.sessionActive && data.valid)
             {
                 switch (_sessionData.sessionType)
                 {
@@ -576,6 +574,12 @@ namespace Storage
                 }
             }
         }
+    }
+
+    //------------------------------------------------------------------------
+    void UpdateSession(const GPS::FixData& data)
+    {
+        WayPoints::StoreCurrentLocation(data.coord);
 
         // Handle updating active sessions
         if (_sessionData.sessionActive)

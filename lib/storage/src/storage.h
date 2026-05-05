@@ -22,7 +22,7 @@ namespace Storage
     const String ROUTE_LOG_PREFIX = "/route_";
     const String FILE_TYPE = ".csv";
 
-    // Initialize the storage and SPIFFS partition
+    // Initialize the storage and LittleFS partition
     bool InitializeStorage();
 
     // Determines when to start/stop sessions.
@@ -44,7 +44,7 @@ namespace Storage
     // Loads the waypoints from the WAYPOINTS_FILE, if it exists
     bool LoadWaypoints();
 
-    // Writes back the waypoints to the SPIFFS flash after a purge is
+    // Writes back the waypoints to the LittleFS flash after a purge is
     // completed. Calls LoadWaypoints afterwards to ensure ram
     // waypoints are fresh.
     void LoadBackedupWaypoints();
@@ -66,7 +66,7 @@ namespace Storage
     // Returns a boolean for if a file exists or not.
     bool FileExists(const String& name);
 
-    // Returns the SPIFFS partition usage in a percentage.
+    // Returns the LittleFS partition usage in a percentage.
     double StorageUsage();
 
     // Returns the current session Mode

@@ -9,7 +9,7 @@
 
 #include <storage.h>
 #include <ArduinoJson.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <led.h>
 #include <vector>
 #include <prefs.h>
@@ -148,7 +148,7 @@ namespace
             return;
         }
 
-        File summaryFile = SPIFFS.open(_sessionData.currentSummaryFile, FILE_WRITE);
+        File summaryFile = LittleFS.open(_sessionData.currentSummaryFile, FILE_WRITE);
         if (!summaryFile)
         {
             // File was unable to be created. Not a fatal event, so no need
@@ -185,7 +185,7 @@ namespace
         if (_ramData.logPosition == 0)
             return;
 
-        File logFile = SPIFFS.open(_sessionData.currentLogFile, FILE_APPEND);
+        File logFile = LittleFS.open(_sessionData.currentLogFile, FILE_APPEND);
 
         if (logFile)
         {
@@ -240,9 +240,9 @@ namespace
                     + _sessionData.currentTimeStamp
                     + Storage::FILE_TYPE;
 
-            File logFile  = SPIFFS.open(_sessionData.currentLogFile, FILE_WRITE);
-            File timeFile = SPIFFS.open(_sessionData.currentTimeLogFile, FILE_WRITE);
-            File manifest = SPIFFS.open(Storage::MANIFEST_FILE, FILE_APPEND);
+            File logFile  = LittleFS.open(_sessionData.currentLogFile, FILE_WRITE);
+            File timeFile = LittleFS.open(_sessionData.currentTimeLogFile, FILE_WRITE);
+            File manifest = LittleFS.open(Storage::MANIFEST_FILE, FILE_APPEND);
             if (!logFile || !timeFile || !manifest)
             {
                 // Failed to write to manifest, meaning the session will
@@ -335,7 +335,7 @@ namespace
                         _lapData.sector3Time
         );
 
-        File timeFile = SPIFFS.open(_sessionData.currentTimeLogFile, FILE_APPEND);
+        File timeFile = LittleFS.open(_sessionData.currentTimeLogFile, FILE_APPEND);
 
         // If it doesn't open, it's not fatal. The user will just not have lap
         // times. Don't halt the user.
@@ -386,8 +386,8 @@ namespace
                     + _sessionData.currentTimeStamp
                     + Storage::FILE_TYPE;
 
-            File routeFile = SPIFFS.open(_sessionData.currentLogFile, FILE_WRITE);
-            File manifest  = SPIFFS.open(Storage::MANIFEST_FILE, FILE_APPEND);
+            File routeFile = LittleFS.open(_sessionData.currentLogFile, FILE_WRITE);
+            File manifest  = LittleFS.open(Storage::MANIFEST_FILE, FILE_APPEND);
             if (!routeFile || !manifest)
             {
                 // Failed to write to manifest, meaning the session will
@@ -473,7 +473,7 @@ namespace Storage
     //------------------------------------------------------------------------
     bool InitializeStorage()
     {
-        bool success = SPIFFS.begin(true);
+        bool success = LittleFS.begin(true);
 
         if (success)
         {
@@ -662,9 +662,9 @@ namespace Storage
     {
         bool exists(false);
 
-        if (SPIFFS.exists(WAYPOINTS_FILE))
+        if (LittleFS.exists(WAYPOINTS_FILE))
         {
-            File file = SPIFFS.open(WAYPOINTS_FILE, FILE_READ);
+            File file = LittleFS.open(WAYPOINTS_FILE, FILE_READ);
             _waypointsBackup.resize(file.size());
             file.readBytes((char*)_waypointsBackup.data(), _waypointsBackup.size());
             file.close();
@@ -677,7 +677,7 @@ namespace Storage
     //------------------------------------------------------------------------
     bool LoadWaypoints()
     {
-        File waypointsFile = SPIFFS.open(WAYPOINTS_FILE, FILE_READ);
+        File waypointsFile = LittleFS.open(WAYPOINTS_FILE, FILE_READ);
         if (!waypointsFile)
         {
             // This just means there is no waypoints file. Not fatal, just
@@ -741,7 +741,7 @@ namespace Storage
     //------------------------------------------------------------------------
     void LoadBackedupWaypoints()
     {
-        File file = SPIFFS.open(WAYPOINTS_FILE, FILE_WRITE);
+        File file = LittleFS.open(WAYPOINTS_FILE, FILE_WRITE);
         file.write(_waypointsBackup.data(), _waypointsBackup.size());
         file.close();
         LoadWaypoints();
@@ -750,7 +750,7 @@ namespace Storage
     //------------------------------------------------------------------------
     void WriteWaypointsFile(const uint8_t* raw, size_t len)
     {
-        File waypointsFile = SPIFFS.open(WAYPOINTS_FILE, FILE_WRITE);
+        File waypointsFile = LittleFS.open(WAYPOINTS_FILE, FILE_WRITE);
 
         waypointsFile.write(raw, len);
         waypointsFile.close();
@@ -761,10 +761,10 @@ namespace Storage
     //------------------------------------------------------------------------
     bool PurgeFlash()
     {
-        SPIFFS.end();
+        LittleFS.end();
 
-        bool purged = SPIFFS.format();
-        bool mounted = SPIFFS.begin(false);
+        bool purged = LittleFS.format();
+        bool mounted = LittleFS.begin(false);
 
         return purged && mounted;
     }
@@ -776,15 +776,15 @@ namespace Storage
 
         if (strcmp(mode, "r") == 0)
         {
-            file = SPIFFS.open(name, FILE_READ);
+            file = LittleFS.open(name, FILE_READ);
         }
         else if (strcmp(mode, "w") == 0)
         {
-            file = SPIFFS.open(name, FILE_WRITE);
+            file = LittleFS.open(name, FILE_WRITE);
         }
         else if (strcmp(mode, "a") == 0)
         {
-            file = SPIFFS.open(name, FILE_APPEND);
+            file = LittleFS.open(name, FILE_APPEND);
         }
         else
         {
@@ -796,14 +796,14 @@ namespace Storage
 
     bool FileExists(const String& name)
     {
-        return SPIFFS.exists(name);
+        return LittleFS.exists(name);
     }
 
     //------------------------------------------------------------------------
     double StorageUsage()
     {
-        size_t total = SPIFFS.totalBytes();   // size of the SPIFFS partition
-        size_t used  = SPIFFS.usedBytes();    // how much is already occupied
+        size_t total = LittleFS.totalBytes();   // size of the LittleFS partition
+        size_t used  = LittleFS.usedBytes();    // how much is already occupied
 
         if (total == 0)
         {

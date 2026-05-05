@@ -5,6 +5,7 @@
 #include <button.h>
 #include <led.h>
 #include <prefs.h>
+#include <battery.h>
 
 bool ledFlag = false;
 
@@ -12,6 +13,7 @@ void setup() {
     Serial.begin(115200);
     Button::InitializeButton();
     Led::InitializeLed();
+    Battery::InitializeBattery();
 
     // Start the blinking to signal the device is booting up.
     Led::StartBlink(250U);

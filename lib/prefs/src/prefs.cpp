@@ -40,7 +40,8 @@ namespace Prefs
     //------------------------------------------------------------------------
     bool InitializePrefs()
     {
-        bool success = _prefs.begin(PREF_NAMESPACE, true);
+        // Open read/write so the namespace is created on a freshly flashed ESP32.
+        bool success = _prefs.begin(PREF_NAMESPACE, false);
 
         if (success)
         {

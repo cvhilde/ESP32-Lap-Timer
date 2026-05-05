@@ -93,9 +93,6 @@ namespace Display
     {
         VextON();
         delay(100);
-        pinMode(ADC_CTRL, OUTPUT);
-        digitalWrite(ADC_CTRL, LOW);
-        analogReadResolution(12);
         _initialized = _display.init();
 
         if (_initialized)

@@ -58,6 +58,9 @@ namespace WayPoints
     // back the previous location.
     void StoreCurrentLocation(const WayPoints::Coord& point);
 
+    // Resets the recent location history used for line crossing checks.
+    void ResetRecentLocations();
+
     // Reset the session distance counter for a new session.
     void ResetSessionDistance();
 

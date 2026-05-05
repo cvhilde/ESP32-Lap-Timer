@@ -124,7 +124,7 @@ namespace
             sector1Time(0U),
             sector2Time(0U),
             sector3Time(0U),
-            firstLap(false)
+            firstLap(true)
         {}
     };
 
@@ -208,6 +208,24 @@ namespace
     }
 
     //------------------------------------------------------------------------
+    void ResetSessionStateAfterPurge()
+    {
+        _ramData.logPosition = 0;
+        _ramData.logTimeBegin = 0U;
+
+        _sessionData.sessionActive = false;
+        _sessionData.lastUpdateTime = 0U;
+        _sessionData.currentLogFile = "";
+        _sessionData.currentTimeLogFile = "";
+        _sessionData.currentSummaryFile = "";
+        _sessionData.currentTimeStamp = "";
+
+        _lapData = LapTimingSessionInfo{};
+        WayPoints::ResetRecentLocations();
+    }
+
+
+    //------------------------------------------------------------------------
     void WriteSessionSummary(Storage::SessionType sessionType)
     {
         // Summary file name was never updated. Don't create the file.
@@ -269,6 +287,9 @@ namespace
     {
         if (time.valid)
         {
+            _lapData = LapTimingSessionInfo{};
+            WayPoints::ResetRecentLocations();
+
             char timestamp[25];
             sprintf(timestamp, "%04d%02d%02d_%02d%02d%02d",
                                 time.year,
@@ -337,7 +358,6 @@ namespace
 
             Led::TurnLedOn();
 
-            _lapData.firstLap          = true;
             _sessionData.sessionActive = true;
         }
     }
@@ -420,7 +440,6 @@ namespace
         FlushRamToFlash();
         WriteSessionSummary(Storage::SessionType::LAP_TIMING);
         _sessionData.currentSummaryFile = "";
-        _lapData.lapNumber = 0;
 
         Led::TurnLedOff();
         Led::StartOneShotBlink(END_SESSION_BLINK_INTERVAL, END_SESSION_BLINK_INTERVAL * 4);
@@ -836,6 +855,11 @@ namespace Storage
         }
 
         const bool purged = RemoveFileSystemEntries(entries);
+
+        if (purged)
+        {
+            ResetSessionStateAfterPurge();
+        }
 
         return purged;
     }

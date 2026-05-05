@@ -30,7 +30,10 @@ namespace
     constexpr unsigned ADC_CTRL = 37;
 
     // Initial setup flag.
-    bool initialized = false;
+    bool _initialized = false;
+
+    // Permanent draw flag.
+    bool _permDrawsDone = false;
 
     unsigned long _lastDrawTime = 0;
 
@@ -93,21 +96,41 @@ namespace Display
         pinMode(ADC_CTRL, OUTPUT);
         digitalWrite(ADC_CTRL, LOW);
         analogReadResolution(12);
-        initialized = _display.init();
+        _initialized = _display.init();
 
-        if (initialized)
+        if (_initialized)
         {
+            _display.clear();
             _display.setFont(DisplayAssets::Roboto_Light_14);
             _display.drawString(34, 4, "Lap Timer");
             _display.drawString(58, 30, "By");
             _display.drawString(7, 48, "Carter Hildebrandt");
             _display.display();
-            delay(5000);
-
-            PermDraws();
         }
 
-        return initialized;
+        return _initialized;
+    }
+
+    //------------------------------------------------------------------------
+    void DetermineSplashScreen(bool systemInitialized)
+    {
+        // The display was the object that didn't display. Do nothing
+        if (!_initialized)
+        {
+            return;
+        }
+
+        // System isn't healthy, display the failed splashscreen
+        if (!systemInitialized)
+        {
+            _display.clear();
+            _display.drawString(10, 4, "Something failed");
+            _display.drawString(30, 22, "to initialize");
+            _display.drawCircle(64, 48, 5);
+            _display.drawLine(68, 42, 60, 54);
+            _display.drawLine(60, 42, 68, 54);
+            _display.display();
+        }
     }
 
     //------------------------------------------------------------------------
@@ -116,6 +139,12 @@ namespace Display
         if (millis() - _lastDrawTime > SCREEN_REFRESH_RATE)
         {
             _lastDrawTime = millis();
+
+            if (!_permDrawsDone)
+            {
+                PermDraws();
+                _permDrawsDone = true;
+            }
 
             DrawCurrentMode(status.mode);
 

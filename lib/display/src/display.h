@@ -35,9 +35,15 @@ namespace Display
 		{}
 	};
 
+	// How long to display the splashscreen for
+	constexpr unsigned SPLASH_MINIMUM_TIME = 5000U;
+
     // Initializes the display while also drawing the basic sector times.
 	// Returns a boolean for whether or no the display was properly initialized.
 	bool InitializeDisplay();
+
+	// If the ESP32 doesn't initialize, display the failed initialization splashscreen.
+	void DetermineSplashScreen(bool initialized);
 
 	// Draws the status screen based.
 	void UpdateScreen(const StatusSnapshot& status);

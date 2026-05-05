@@ -27,7 +27,7 @@ namespace Prefs
         {}
     };
 
-    void InitializePrefs();
+    bool InitializePrefs();
 
     const Config& PersistConfig();
 

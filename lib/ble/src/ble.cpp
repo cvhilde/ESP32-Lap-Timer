@@ -21,6 +21,7 @@
 #include <storage.h>
 #include <led.h>
 #include <prefs.h>
+#include <battery.h>
 
 //----------------------------------------------------------------------------
 // Private namespace
@@ -89,6 +90,7 @@ namespace
         SET_LAP_HZ,
         SET_ROUTE_HZ,
         BAD_HZ,
+        GET_ALL_DATA,
         INVALID
     };
 
@@ -589,6 +591,10 @@ namespace
                 cmd.n = hz;
             }
         }
+        else if (line == "GET_ALL_DATA")
+        {
+            cmd.type = CommandType::GET_ALL_DATA;
+        }
         else
         {
             return;
@@ -913,6 +919,97 @@ namespace
     }
 
     //------------------------------------------------------------------------
+    void HandleAllData()
+    {
+        if (_tx.state != TxState::IDLE)
+        {
+            return;
+        }
+
+        // Consider this protocol version 1
+        uint8_t v = 1;
+
+        String session;
+        switch (Storage::GetSessionMode())
+        {
+            case Storage::SessionType::LAP_TIMING:
+                session = "lap";
+                break;
+            case Storage::SessionType::ROUTE_TRACKING:
+                session = "route";
+                break;
+            default:
+                session = "unknown";
+                break;
+        }
+
+        String trackName(Storage::GetTrackName());
+        
+        unsigned lapHz   = Prefs::PersistConfig().lapLogHz;
+        unsigned routeHz = Prefs::PersistConfig().routeLogHz;
+
+        double storageUsage = Storage::StorageUsage();
+
+        String power;
+        if (Battery::IsConnected())
+        {
+            power = "battery";
+        }
+        else
+        {
+            power = "external";
+        }
+
+        float voltage = Battery::ReadVoltage();
+        int percent   = Battery::Percentage(voltage);
+
+        const GPS::FixData& fixData(GPS::GetFixData());
+
+        String fix;
+        switch (fixData.fixType)
+        {
+            case GPS::FixType::NO_FIX:
+                fix = "NO_FIX";
+                break;
+            case GPS::FixType::DEAD_RECKONING:
+                fix = "DEAD_RECKONING";
+                break;
+            case GPS::FixType::TWO_D:
+                fix = "2D";
+                break;
+            case GPS::FixType::THREE_D:
+                fix = "3D";
+                break;
+            case GPS::FixType::GNSS_DEAD_RECKONING:
+                fix = "GNSS";
+                break;
+            case GPS::FixType::TIME_ONLY:
+                fix = "TIME_ONLY";
+                break;
+            default:
+                fix = "NO_FIX";
+                break;
+        }
+
+        uint8_t sats = fixData.satelliteCount;
+
+        String buffer =
+            "v=" + String(v) +
+            ",session=" + session +
+            ",track=" + trackName +
+            ",lapHz=" + String(lapHz) +
+            ",routeHz=" + String(routeHz) +
+            ",storage=" + String(storageUsage, 2) +
+            ",power=" + power +
+            ",voltage=" + String(voltage) +
+            ",batPercent=" + String(percent) +
+            ",gpsFix=" + fix +
+            ",sats=" + String(sats);
+
+        TxLine("ALL_DATA," + buffer + "\n");
+    }
+
+    //------------------------------------------------------------------------
     void HandlePutBegin(const String& meta, TransferMode mode)
     {
         int comma = meta.indexOf(',');
@@ -1085,6 +1182,9 @@ namespace
                     break;
                 case CommandType::BAD_HZ:
                     TxLine("ERR,BAD_HZ\n");
+                    break;
+                case CommandType::GET_ALL_DATA:
+                    HandleAllData();
                     break;
                 case CommandType::INVALID: // <=== PASSTHROUGH
                 default:

@@ -987,7 +987,7 @@ namespace
                 fix = "TIME_ONLY";
                 break;
             default:
-                fix = "NO_GPS";
+                fix = "NO_FIX";
                 break;
         }
 

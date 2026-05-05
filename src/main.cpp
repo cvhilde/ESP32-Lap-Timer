@@ -13,13 +13,41 @@ void setup() {
     Button::InitializeButton();
     Led::InitializeLed();
 
+    // Start the blinking to signal the device is booting up.
     Led::StartBlink(250U);
-    Prefs::InitializePrefs();
-    Display::InitializeDisplay();
-    Storage::InitializeStorage();
-    GPS::InitializeUBLOX();
+
+    // Get the start of initialization.
+    unsigned long splashStart = millis();
+
+    bool displayOk = Display::InitializeDisplay();
+    bool prefsOk   = Prefs::InitializePrefs();
+    bool storageOk = Storage::InitializeStorage();
+    bool gpsOk     = GPS::InitializeUBLOX();
     BLE::InitializeBLE();
 
+    bool initialized = displayOk && prefsOk && storageOk && gpsOk;
+
+    // Display the splashscreen for atleast 5 seconds.
+    while (millis() - splashStart <= Display::SPLASH_MINIMUM_TIME)
+    {
+        delay(10);
+    }
+    
+    // Determine whether to display the failed start screen.
+    Display::DetermineSplashScreen(initialized);
+
+    if (!initialized)
+    {
+        // Only start the blink once.
+        Led::StartBlink(100U);
+
+        while(!initialized)
+        {
+            // Do nothing. ESP32 failed to start.
+        }
+    }
+
+    // System is green. Continue with logic.
     Led::StopBlink();
 }
 

@@ -46,10 +46,8 @@ namespace GPS
     bool InitializeUBLOX()
     {    
         _GPSHardwareSerial.begin(115200, SERIAL_8N1, GPS_Rx, GPS_Tx);
-        delay(1000);
         
         initialized = _gps.begin(_GPSHardwareSerial);
-        delay(1000);
 
         return initialized;
     }

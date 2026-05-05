@@ -38,37 +38,39 @@ namespace
 namespace Prefs
 {
     //------------------------------------------------------------------------
-    void InitializePrefs()
+    bool InitializePrefs()
     {
-        if (!_prefs.begin(PREF_NAMESPACE, true))
+        bool success = _prefs.begin(PREF_NAMESPACE, true);
+
+        if (success)
         {
-            return;
+            uint8_t sessionTypeValue = _prefs.getUChar(
+                SESSION_TYPE_KEY,
+                static_cast<uint8_t>(DEFAULT_SESSION_TYPE)
+            );
+
+            Storage::SessionType sessionType =
+                static_cast<Storage::SessionType>(sessionTypeValue);
+
+            if (IsValidSessionType(sessionType))
+            {
+                _persistantConfig.sessionType = sessionType;
+            }
+            else
+            {
+                _persistantConfig.sessionType = DEFAULT_SESSION_TYPE;
+            }
+
+            _persistantConfig.lapLogHz =
+                _prefs.getUInt(LAP_FREQ_KEY, DEFAULT_LAP_FREQUENCY);
+
+            _persistantConfig.routeLogHz =
+                _prefs.getUInt(ROUTE_FREQ_KEY, DEFAULT_ROUTE_FREQUENCY);
+
+            _prefs.end();
         }
 
-        uint8_t sessionTypeValue = _prefs.getUChar(
-            SESSION_TYPE_KEY,
-            static_cast<uint8_t>(DEFAULT_SESSION_TYPE)
-        );
-
-        Storage::SessionType sessionType =
-            static_cast<Storage::SessionType>(sessionTypeValue);
-
-        if (IsValidSessionType(sessionType))
-        {
-            _persistantConfig.sessionType = sessionType;
-        }
-        else
-        {
-            _persistantConfig.sessionType = DEFAULT_SESSION_TYPE;
-        }
-
-        _persistantConfig.lapLogHz =
-            _prefs.getUInt(LAP_FREQ_KEY, DEFAULT_LAP_FREQUENCY);
-
-        _persistantConfig.routeLogHz =
-            _prefs.getUInt(ROUTE_FREQ_KEY, DEFAULT_ROUTE_FREQUENCY);
-
-        _prefs.end();
+        return success;
     }
 
     //------------------------------------------------------------------------

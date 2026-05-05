@@ -35,6 +35,9 @@ namespace
     // Array of the 2 most recent coordinate locations
     WayPoints::RecentLocations _storedLocations;
 
+    // Whether there is enough recent location history to test crossings
+    bool _havePreviousLocation = false;
+
     // Collection of session distance information
     SessionDistance _sessionDisInfo;
 
@@ -101,10 +104,25 @@ namespace WayPoints
     //------------------------------------------------------------------------
     void StoreCurrentLocation(const WayPoints::Coord& point)
     {
+        if (!_havePreviousLocation)
+        {
+            _storedLocations.front() = point;
+            _storedLocations.back() = point;
+            _havePreviousLocation = true;
+            return;
+        }
+
         // back() is the previous location. front() is the current.
         // So the front becomes the back, and the current becomes the front.
         _storedLocations.back()  = _storedLocations.front();
         _storedLocations.front() = point;
+    }
+
+    //------------------------------------------------------------------------
+    void ResetRecentLocations()
+    {
+        _storedLocations = RecentLocations{};
+        _havePreviousLocation = false;
     }
 
     //------------------------------------------------------------------------
@@ -141,6 +159,11 @@ namespace WayPoints
     //------------------------------------------------------------------------
     bool WaypointCrossed(const unsigned currentSector)
     {
+        if (!_havePreviousLocation)
+        {
+            return false;
+        }
+
         const WayPoint& currentWaypoint(_trackWaypoints.at(currentSector));
 
         return(   currentWaypoint.isActive

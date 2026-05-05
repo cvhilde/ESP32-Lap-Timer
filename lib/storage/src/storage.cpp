@@ -138,6 +138,74 @@ namespace
 
     std::vector<uint8_t> _waypointsBackup;
 
+    struct FileSystemEntry
+    {
+        String path;
+        bool isDirectory;
+    };
+
+    //------------------------------------------------------------------------
+    bool CollectFileSystemEntries(const String& directoryPath,
+                                  std::vector<FileSystemEntry>& entries)
+    {
+        File directory = LittleFS.open(directoryPath, FILE_READ);
+        if (!directory || !directory.isDirectory())
+        {
+            return false;
+        }
+
+        File entry = directory.openNextFile();
+        while (entry)
+        {
+            const char* rawPath = entry.path();
+            if (rawPath != nullptr && rawPath[0] != '\0')
+            {
+                const String entryPath(rawPath);
+                const bool isDirectory(entry.isDirectory());
+
+                if (isDirectory && !CollectFileSystemEntries(entryPath, entries))
+                {
+                    entry.close();
+                    directory.close();
+                    return false;
+                }
+
+                entries.push_back({entryPath, isDirectory});
+            }
+
+            entry.close();
+            entry = directory.openNextFile();
+        }
+
+        directory.close();
+        return true;
+    }
+
+    //------------------------------------------------------------------------
+    bool RemoveFileSystemEntries(const std::vector<FileSystemEntry>& entries)
+    {
+        bool removedAll(true);
+
+        // Remove nested files/directories first so parent directories can
+        // be deleted afterwards.
+        for (auto entry = entries.rbegin(); entry != entries.rend(); ++entry)
+        {
+            bool removed(false);
+
+            if (entry->isDirectory)
+            {
+                removed = LittleFS.rmdir(entry->path);
+            }
+            else
+            {
+                removed = LittleFS.remove(entry->path);
+            }
+
+            removedAll = removedAll && removed;
+        }
+
+        return removedAll;
+    }
 
     //------------------------------------------------------------------------
     void WriteSessionSummary(Storage::SessionType sessionType)
@@ -761,12 +829,15 @@ namespace Storage
     //------------------------------------------------------------------------
     bool PurgeFlash()
     {
-        LittleFS.end();
+        std::vector<FileSystemEntry> entries;
+        if (!CollectFileSystemEntries("/", entries))
+        {
+            return false;
+        }
 
-        bool purged = LittleFS.format();
-        bool mounted = LittleFS.begin(false);
+        const bool purged = RemoveFileSystemEntries(entries);
 
-        return purged && mounted;
+        return purged;
     }
 
     //------------------------------------------------------------------------

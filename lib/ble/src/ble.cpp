@@ -620,10 +620,55 @@ namespace
                 continue;
             }
 
-            // Read for lap timing logs
-            if (Storage::FileExists(Storage::LAP_LOG_PREFIX + ts + Storage::FILE_TYPE))
+            // Read for lap timing logs. Lap log filenames may include the
+            // track name, so resolve the actual file from the filesystem.
+            String lapLogFile = "";
             {
-                TxLine(Storage::LAP_LOG_PREFIX + ts + Storage::FILE_TYPE + "\n");
+                const String exactLapLog = 
+                    Storage::LAP_LOG_PREFIX + ts + Storage::FILE_TYPE;
+
+                const String lapSuffix = "_" + ts + Storage::FILE_TYPE;
+
+                File root = Storage::GetFile("/", "r");
+                if (root && root.isDirectory())
+                {
+                    File entry = root.openNextFile();
+
+                    // Continue reading until no more files.
+                    while (entry)
+                    {
+                        if (!entry.isDirectory())
+                        {
+                            const char* rawPath = entry.path();
+                            if (rawPath != nullptr)
+                            {
+                                const String entryPath(rawPath);
+
+                                // If the file meets either condition, the file was
+                                // found. Exit the loop and transmit the data.
+                                if (entryPath == exactLapLog
+                                    || (entryPath.startsWith(Storage::LAP_LOG_PREFIX)
+                                        && entryPath.endsWith(lapSuffix)))
+                                {
+                                    lapLogFile = entryPath;
+                                    entry.close();
+                                    break;
+                                }
+                            }
+                        }
+
+                        // File wasn't found yet. Search the next one.
+                        entry.close();
+                        entry = root.openNextFile();
+                    }
+
+                    root.close();
+                }
+            }
+
+            if (!lapLogFile.isEmpty())
+            {
+                TxLine(lapLogFile + "\n");
                 vTaskDelay(1);
                 TxLine(Storage::LAP_TIMESTAMPS_PREFIX + ts + Storage::FILE_TYPE + "\n");
                 vTaskDelay(1);

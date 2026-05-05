@@ -72,6 +72,9 @@ namespace Storage
     // Returns the current session Mode
     SessionType GetSessionMode();
 
+    // Returns the current track name
+    String GetTrackName();
+
     // Returns a boolean for if the loop should be updated.
     // This uses session type and the frequencies to determine
     // if the correct millis() have passed before updating

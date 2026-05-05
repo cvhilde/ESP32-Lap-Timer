@@ -93,6 +93,7 @@ namespace
             sessionType(Prefs::DEFAULT_SESSION_TYPE),
             currentLogFile(""),
             currentTimeLogFile(""),
+            currentTrackName(""),
             currentSummaryFile(""),
             currentTimeStamp("")
         {}
@@ -912,6 +913,12 @@ namespace Storage
     SessionType GetSessionMode()
     {
         return _sessionData.sessionType;
+    }
+
+    //------------------------------------------------------------------------
+    String GetTrackName()
+    {
+        return _sessionData.currentTrackName;
     }
 
     //------------------------------------------------------------------------

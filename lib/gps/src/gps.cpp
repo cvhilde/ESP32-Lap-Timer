@@ -28,6 +28,7 @@ namespace
 
     // Cached gps data
     GPS::FixData _fixData;
+    portMUX_TYPE _fixDataMux = portMUX_INITIALIZER_UNLOCKED;
 
     // Physical gps data pins connected to the ESP32.
     constexpr uint8_t GPS_Rx = 19;
@@ -55,7 +56,7 @@ namespace GPS
     //------------------------------------------------------------------------
     void UpdateUBLOX()
     {
-        _fixData = FixData{};
+        FixData nextFixData;
 
         _gps.checkUblox();
 
@@ -63,35 +64,35 @@ namespace GPS
 
         if (fix >= FixType::DEAD_RECKONING && fix <= FixType::GNSS_DEAD_RECKONING)
         {
-            _fixData.coord.lat = _gps.getLatitude()    * LAT_LONG_TO_DEGREES;
-            _fixData.coord.lng = _gps.getLongitude()   * LAT_LONG_TO_DEGREES;
-            _fixData.speed     = _gps.getGroundSpeed() * MM_S_TO_MPH;
-            _fixData.altitude  = _gps.getAltitudeMSL() * MM_TO_FEET;
+            nextFixData.coord.lat = _gps.getLatitude()    * LAT_LONG_TO_DEGREES;
+            nextFixData.coord.lng = _gps.getLongitude()   * LAT_LONG_TO_DEGREES;
+            nextFixData.speed     = _gps.getGroundSpeed() * MM_S_TO_MPH;
+            nextFixData.altitude  = _gps.getAltitudeMSL() * MM_TO_FEET;
             
-            _fixData.dateTime.year   = _gps.getYear();
-            _fixData.dateTime.month  = _gps.getMonth();
-            _fixData.dateTime.day    = _gps.getDay();
-            _fixData.dateTime.hour   = ((_gps.getHour() - 4) + 24) % 24;
-            _fixData.dateTime.minute = _gps.getMinute();
-            _fixData.dateTime.second = _gps.getSecond();
+            nextFixData.dateTime.year   = _gps.getYear();
+            nextFixData.dateTime.month  = _gps.getMonth();
+            nextFixData.dateTime.day    = _gps.getDay();
+            nextFixData.dateTime.hour   = ((_gps.getHour() - 4) + 24) % 24;
+            nextFixData.dateTime.minute = _gps.getMinute();
+            nextFixData.dateTime.second = _gps.getSecond();
 
-            _fixData.dateTime.valid = true;
-            _fixData.valid          = true;
+            nextFixData.dateTime.valid = true;
+            nextFixData.valid          = true;
         }
         else if (fix == FixType::TIME_ONLY)
         {
-            _fixData.dateTime.year   = _gps.getYear();
-            _fixData.dateTime.month  = _gps.getMonth();
-            _fixData.dateTime.day    = _gps.getDay();
-            _fixData.dateTime.hour   = ((_gps.getHour() - 4) + 24) % 24;
-            _fixData.dateTime.minute = _gps.getMinute();
-            _fixData.dateTime.second = _gps.getSecond();
+            nextFixData.dateTime.year   = _gps.getYear();
+            nextFixData.dateTime.month  = _gps.getMonth();
+            nextFixData.dateTime.day    = _gps.getDay();
+            nextFixData.dateTime.hour   = ((_gps.getHour() - 4) + 24) % 24;
+            nextFixData.dateTime.minute = _gps.getMinute();
+            nextFixData.dateTime.second = _gps.getSecond();
 
-            _fixData.dateTime.valid = true;
+            nextFixData.dateTime.valid = true;
         }
 
-        _fixData.fixType = fix;
-        uint8_t sats     = _gps.getSIV();
+        nextFixData.fixType        = fix;
+        nextFixData.satelliteCount = _gps.getSIV();
 
         // When using gps polling rates above 5Hz, the UBlox NEO-M9N's
         // solution engine will only prioritize up to 16 satellites to
@@ -102,15 +103,21 @@ namespace GPS
         // dynamically when session frequencies are changed, but for now
         // this will do.
         // https://portal.u-blox.com/s/question/0D52p0000AOK91vCQD/can-neom9n-only-use-16-satellites-with-nav-update-rate-5hz
-        if (sats > 16)
-        {
-            _fixData.satelliteCount = 0;
-        }
+
+        portENTER_CRITICAL(&_fixDataMux);
+        _fixData = nextFixData;
+        portEXIT_CRITICAL(&_fixDataMux);
     }
 
     //------------------------------------------------------------------------
-    const FixData& GetFixData()
+    FixData GetFixData()
     {
-        return _fixData;
+        FixData snapshot;
+
+        portENTER_CRITICAL(&_fixDataMux);
+        snapshot = _fixData;
+        portEXIT_CRITICAL(&_fixDataMux);
+
+        return snapshot;
     }
 }

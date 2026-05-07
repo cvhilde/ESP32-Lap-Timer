@@ -963,7 +963,7 @@ namespace
         float voltage = Battery::ReadVoltage();
         int percent   = Battery::Percentage(voltage);
 
-        const GPS::FixData& fixData(GPS::GetFixData());
+        const GPS::FixData fixData(GPS::GetFixData());
 
         String fix;
         switch (fixData.fixType)

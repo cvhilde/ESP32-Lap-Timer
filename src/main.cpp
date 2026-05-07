@@ -8,6 +8,7 @@
 #include <battery.h>
 
 bool ledFlag = false;
+unsigned long lastUpdateTime = 0;
 
 void setup() {
     Serial.begin(115200);
@@ -92,6 +93,10 @@ void loop() {
                 Led::StopBlink();
                 ledFlag = false;
             }
+
+            double freq = 1000.0 / (millis() - lastUpdateTime);
+            lastUpdateTime = millis();
+            Serial.printf("Frequency: %.2lf\n", freq);
 
             // Update session logic
             Storage::UpdateSession(status.fixData);

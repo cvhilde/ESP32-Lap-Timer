@@ -94,7 +94,7 @@ namespace GPS
     // 4 - GNSS + Dead Reckoning combined
     // 5 - Time only fix
     // With the NEO-M9N, the best fix type will be 3.
-    const FixData& GetFixData();
+    FixData GetFixData();
 };
 
 #endif

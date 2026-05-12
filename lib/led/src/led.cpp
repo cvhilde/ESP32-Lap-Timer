@@ -34,7 +34,7 @@ namespace
     uint32_t _blinkOffDurationMs = 500;
 
     // Physical LED pin on the ESP32
-    constexpr uint8_t LED_PIN = 45;
+    constexpr uint8_t LED_PIN = 46;
 
     //------------------------------------------------------------------------
     // Event bus for blinking the LED using Ticker.

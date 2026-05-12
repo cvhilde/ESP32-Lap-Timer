@@ -56,6 +56,11 @@ namespace GPS
         {
             if (_gps.begin(_GPSHardwareSerial))
             {
+                // Make sure to set the update frequency to 1Hz when the GPS
+                // is powered on.
+                delay(1000);
+                _gps.setNavigationFrequency(1U);
+
                 initialized = true;
                 return true;
             }
@@ -133,5 +138,12 @@ namespace GPS
         portEXIT_CRITICAL(&_fixDataMux);
 
         return snapshot;
+    }
+
+    //------------------------------------------------------------------------
+    void SetUpdateFrequency(unsigned hz)
+    {
+        hz = constrain(hz, 1U, 25U);
+        _gps.setNavigationFrequency(hz);
     }
 }

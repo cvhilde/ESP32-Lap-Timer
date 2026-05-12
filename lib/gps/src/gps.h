@@ -95,6 +95,10 @@ namespace GPS
     // 5 - Time only fix
     // With the NEO-M9N, the best fix type will be 3.
     FixData GetFixData();
+
+    // Sets the GPS modules update frequency. This will contrain the called
+    // argument between 1 and 25 automatically.
+    void SetUpdateFrequency(unsigned hz);
 };
 
 #endif

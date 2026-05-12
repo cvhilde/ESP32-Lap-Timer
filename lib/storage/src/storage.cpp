@@ -10,9 +10,11 @@
 #include <storage.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
+#include <button.h>
 #include <led.h>
 #include <vector>
 #include <prefs.h>
+#include <gps.h>
 
 //----------------------------------------------------------------------------
 // Private namespace
@@ -288,6 +290,8 @@ namespace
     {
         if (time.valid)
         {
+            GPS::SetUpdateFrequency(Prefs::PersistConfig().lapLogHz);
+
             _lapData = LapTimingSessionInfo{};
             WayPoints::ResetRecentLocations();
 
@@ -438,6 +442,8 @@ namespace
     //------------------------------------------------------------------------
     void EndLapSession()
     {
+        GPS::SetUpdateFrequency(1U);
+
         FlushRamToFlash();
         WriteSessionSummary(Storage::SessionType::LAP_TIMING);
         _sessionData.currentSummaryFile = "";
@@ -453,6 +459,8 @@ namespace
     {
         if (time.valid)
         {
+            GPS::SetUpdateFrequency(Prefs::PersistConfig().routeLogHz);
+
             char timestamp[25];
             sprintf(timestamp, "%04d%02d%02d_%02d%02d%02d",
                                 time.year,
@@ -542,6 +550,8 @@ namespace
     //------------------------------------------------------------------------
     void EndRouteSession()
     {
+        GPS::SetUpdateFrequency(1U);
+
         FlushRamToFlash();
         WriteSessionSummary(Storage::SessionType::ROUTE_TRACKING);
         _sessionData.currentSummaryFile = "";

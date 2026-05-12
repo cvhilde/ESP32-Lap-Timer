@@ -12,13 +12,12 @@ namespace Battery
     // This is a user set value, not detected.
     bool IsConnected();
 
-    // Reads the battery voltage.
-    // WARNING: This will incur a small delay of 2 * BATTERY_READ_SAMPLES ms.
-    // Do not call this often, otherwise it can delay the main loop.
+    // Reads the battery voltage and stores it in the rolling average.
     float ReadVoltage();
 
-    // Returns a battery percentage based on the passed in battery voltage.
-    int Percentage(float voltage);
+    // Returns the average battery percentage based on the rolling
+    // average of the read in battery voltages.
+    int AveragePercentage();
 };
 
 #endif

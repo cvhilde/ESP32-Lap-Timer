@@ -8,6 +8,8 @@
 #include <battery.h>
 
 bool ledFlag = false;
+unsigned long lastUpdateTime = 0;
+unsigned long lastGPSTime = 0;
 
 void setup() {
     Serial.begin(115200);
@@ -57,6 +59,10 @@ void loop() {
     // Grab the latest gps data always.
     GPS::UpdateUBLOX();
 
+    double freqGPS = 1000.0 / (millis() - lastGPSTime);
+    lastGPSTime = millis();
+    Serial.printf("GPS Frequency: %.2lf\n", freqGPS);
+
     // Grab the button mode.
     const Button::Mode mode(Button::PollButtonAction());
 
@@ -92,6 +98,10 @@ void loop() {
                 Led::StopBlink();
                 ledFlag = false;
             }
+
+            double freqSession = 1000.0 / (millis() - lastUpdateTime);
+            lastUpdateTime = millis();
+            Serial.printf("Frequency: %.2lf\n", freqSession);
 
             // Update session logic
             Storage::UpdateSession(status.fixData);

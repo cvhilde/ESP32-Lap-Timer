@@ -113,16 +113,6 @@ namespace GPS
         nextFixData.fixType        = fix;
         nextFixData.satelliteCount = _gps.getSIV();
 
-        // When using gps polling rates above 5Hz, the UBlox NEO-M9N's
-        // solution engine will only prioritize up to 16 satellites to
-        // reduce computational load. Since the GPS is configured to update
-        // at 25Hz no matter the Prefs frequency, it will never track more
-        // than 16 satellites. If the value is above that, the value is invalid.
-        // Eventually I'll update the logic to update the GPS polling rate
-        // dynamically when session frequencies are changed, but for now
-        // this will do.
-        // https://portal.u-blox.com/s/question/0D52p0000AOK91vCQD/can-neom9n-only-use-16-satellites-with-nav-update-rate-5hz
-
         portENTER_CRITICAL(&_fixDataMux);
         _fixData = nextFixData;
         portEXIT_CRITICAL(&_fixDataMux);

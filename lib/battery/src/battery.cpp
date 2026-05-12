@@ -1,3 +1,41 @@
+///===========================================================================
+///
+/// battery.cpp
+///
+/// Interfaces with the battery to read the battery percentage and/or battery
+/// voltage.
+///
+/// Battery/storage test:
+/// 1000mAh
+/// Measured current = 200mA
+/// Theoretical time limit = 5 hours
+/// 15 Hz polling rate
+///
+/// - 12:05
+///   93% Battery
+///   0.44% Storage
+/// - 1:05
+///   81% Battery
+///   24.00% Storage
+/// - 2:05
+///   70% Battery
+///   42.25% Storage
+///
+/// Battery
+/// Avg - 11.5% per hour
+/// Storage
+/// Avg - 20.91% per hour
+///
+/// Final results:
+/// 8 hours (conservative estimate) of battery life on 1000mAh
+/// 4.75 hours of storage on 15Hz or 1.4% of storage usage per hour per Hz
+/// 
+/// So at 25Hz, a rough estimate would be:
+/// 1.4% * 25 = 35% storage usage per hour
+/// 100/35 = 2.85 hours of logging time
+///
+///===========================================================================
+
 #include <battery.h>
 
 //----------------------------------------------------------------------------

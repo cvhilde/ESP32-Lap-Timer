@@ -31,8 +31,11 @@ namespace
     portMUX_TYPE _fixDataMux = portMUX_INITIALIZER_UNLOCKED;
 
     // Physical gps data pins connected to the ESP32.
-    constexpr uint8_t GPS_Rx = 19;
-    constexpr uint8_t GPS_Tx = 20;
+    constexpr uint8_t GPS_Rx = 20;
+    constexpr uint8_t GPS_Tx = 19;
+
+    // Time to continuously try to initialize the GPS
+    constexpr unsigned long MAX_GPS_INIT = 5000U;
 
     // Initial setup flag.
     bool initialized = false;
@@ -47,10 +50,21 @@ namespace GPS
     bool InitializeUBLOX()
     {    
         _GPSHardwareSerial.begin(115200, SERIAL_8N1, GPS_Rx, GPS_Tx);
-        
-        initialized = _gps.begin(_GPSHardwareSerial);
 
-        return initialized;
+        const unsigned long start = millis();
+        while (millis() - start < MAX_GPS_INIT)
+        {
+            if (_gps.begin(_GPSHardwareSerial))
+            {
+                initialized = true;
+                return true;
+            }
+
+            delay(250);
+        }
+
+        initialized = false;
+        return false;
     }
 
     //------------------------------------------------------------------------

@@ -8,8 +8,6 @@
 #include <battery.h>
 
 bool ledFlag = false;
-unsigned long lastUpdateTime = 0;
-unsigned long lastGPSTime = 0;
 
 void setup() {
     Serial.begin(115200);
@@ -59,10 +57,6 @@ void loop() {
     // Grab the latest gps data always.
     GPS::UpdateUBLOX();
 
-    double freqGPS = 1000.0 / (millis() - lastGPSTime);
-    lastGPSTime = millis();
-    Serial.printf("GPS Frequency: %.2lf\n", freqGPS);
-
     // Grab the button mode.
     const Button::Mode mode(Button::PollButtonAction());
 
@@ -88,30 +82,23 @@ void loop() {
     // Update the session start/stopping
     Storage::SessionStartStop(status.fixData, mode);
 
-    // Perform rest of loop at set refresh rate.
-    if (Storage::ShouldUpdateLoop()) {
-        // Only update session logic when there is atleast a 2D fix.
-        if (status.fixData.valid) {
+    // Only update session logic when there is atleast a 2D fix.
+    if (status.fixData.valid) {
 
-            // Only stop the blink once, to avoid stopping other blinks.
-            if (ledFlag) {
-                Led::StopBlink();
-                ledFlag = false;
-            }
+        // Only stop the blink once, to avoid stopping other blinks.
+        if (ledFlag) {
+            Led::StopBlink();
+            ledFlag = false;
+        }
 
-            double freqSession = 1000.0 / (millis() - lastUpdateTime);
-            lastUpdateTime = millis();
-            Serial.printf("Frequency: %.2lf\n", freqSession);
+        // Update session logic
+        Storage::UpdateSession(status.fixData);
 
-            // Update session logic
-            Storage::UpdateSession(status.fixData);
-
-        // No valid fx. Only start the blink once.
-        } else {
-            if (!ledFlag) {
-                Led::StartBlink(500);
-                ledFlag = true;
-            }
+    // No valid fx. Only start the blink once.
+    } else {
+        if (!ledFlag) {
+            Led::StartBlink(500);
+            ledFlag = true;
         }
     }
 }

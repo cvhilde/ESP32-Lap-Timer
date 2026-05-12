@@ -65,8 +65,6 @@ namespace
         // Is session active
         bool sessionActive;
 
-        unsigned long lastUpdateTime;
-
         // Default to lap timing mode
         Storage::SessionType sessionType;
 
@@ -91,7 +89,6 @@ namespace
 
         SessionInfo() :
             sessionActive(false),
-            lastUpdateTime(0U),
             sessionType(Prefs::DEFAULT_SESSION_TYPE),
             currentLogFile(""),
             currentTimeLogFile(""),
@@ -217,7 +214,6 @@ namespace
         _ramData.logTimeBegin = 0U;
 
         _sessionData.sessionActive = false;
-        _sessionData.lastUpdateTime = 0U;
         _sessionData.currentLogFile = "";
         _sessionData.currentTimeLogFile = "";
         _sessionData.currentSummaryFile = "";
@@ -929,33 +925,5 @@ namespace Storage
     String GetTrackName()
     {
         return _sessionData.currentTrackName;
-    }
-
-    //------------------------------------------------------------------------
-    bool ShouldUpdateLoop()
-    {
-        unsigned long updateTime;
-        bool update(false);
-
-        switch (_sessionData.sessionType)
-        {
-            case Storage::SessionType::LAP_TIMING:
-                updateTime = 1000U / Prefs::PersistConfig().lapLogHz;
-                break;
-            case Storage::SessionType::ROUTE_TRACKING:
-                updateTime = 1000U / Prefs::PersistConfig().routeLogHz;
-                break;
-            default:
-                updateTime = 1000U;
-                break;
-        }
-
-        if (millis() - _sessionData.lastUpdateTime >= updateTime)
-        {
-            _sessionData.lastUpdateTime = millis();
-            update = true;
-        }
-
-        return update;
     }
 }

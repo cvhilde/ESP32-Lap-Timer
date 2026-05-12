@@ -15,7 +15,7 @@ namespace
     // battery as the main power source or not. This is used to
     // determine if battery percentage logic is to take place, or
     // to just report the raw input voltage as read on VADC_IN.
-    constexpr bool DEVICE_HAS_BATTERY = false;
+    constexpr bool DEVICE_HAS_BATTERY = true;
 
     // Actual pin number for the battery voltage output pin.
     // Labeled as VBAT_Read on the actual device.

@@ -1,9 +1,18 @@
 #ifndef STORAGE_H
 #define STORAGE_H
 
-#include <button.h>
-#include <gps.h>
 #include <FS.h>
+
+// Forward Declarations
+namespace Button
+{
+    enum class Mode;
+}
+
+namespace GPS
+{
+    struct FixData;
+}
 
 namespace Storage
 {

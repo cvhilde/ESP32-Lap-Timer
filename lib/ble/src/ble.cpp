@@ -22,6 +22,7 @@
 #include <led.h>
 #include <prefs.h>
 #include <battery.h>
+#include <button.h>
 
 //----------------------------------------------------------------------------
 // Private namespace

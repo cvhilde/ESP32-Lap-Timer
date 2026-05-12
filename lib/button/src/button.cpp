@@ -26,7 +26,7 @@ namespace
     };
 
     // Physical button pin. For the V3.2
-    constexpr uint8_t BUTTON_PIN = 46;
+    constexpr uint8_t BUTTON_PIN = 45;
 
     // Constants relating to the press times to determine the Mode
     constexpr unsigned DEBOUNCE_TIME      = 100U;

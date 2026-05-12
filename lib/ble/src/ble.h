@@ -1,7 +1,11 @@
 #ifndef BLE_H
 #define BLE_H
 
-#include <button.h>
+// Forward Declarations
+namespace Button
+{
+    enum class Mode;
+}
 
 namespace BLE
 {

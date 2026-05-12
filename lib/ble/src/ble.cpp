@@ -962,7 +962,7 @@ namespace
         }
 
         float voltage = Battery::ReadVoltage();
-        int percent   = Battery::Percentage(voltage);
+        int percent   = Battery::AveragePercentage();
 
         const GPS::FixData fixData(GPS::GetFixData());
 

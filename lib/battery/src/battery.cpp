@@ -39,7 +39,7 @@ namespace
     // BATTERY_CALIBRATION = ACTUAL / ESP_MEASURED
     constexpr float BATTERY_CALIBRATION = 3.4f / 3.3f;
 
-    constexpr int BATTERY_READ_SAMPLES = 16;
+    constexpr size_t BATTERY_VOLTAGE_AVG_SAMPLES = 16;
 
     constexpr Point CURVE[] = {
         {4.20f, 100}, {4.10f, 90}, {4.00f, 80}, {3.92f, 70},
@@ -48,43 +48,44 @@ namespace
     };
 
     constexpr size_t CURVE_SIZE = sizeof(CURVE) / sizeof(CURVE[0]);
-}
 
-//----------------------------------------------------------------------------
-// Battery Public namespace
-//----------------------------------------------------------------------------
-namespace Battery
-{
-    //------------------------------------------------------------------------
-    void InitializeBattery()
+    struct AverageVoltage
     {
-        analogReadResolution(12);
-        pinMode(ADC_Ctrl, OUTPUT);
-        digitalWrite(ADC_Ctrl, HIGH);
-        delay(10);
-        analogSetPinAttenuation(VADC_IN, ADC_11db);
-        pinMode(VADC_IN, INPUT);
-    }
+        std::array<float, BATTERY_VOLTAGE_AVG_SAMPLES> samples;
 
-    //------------------------------------------------------------------------
-    bool IsConnected()
-    {
-        return DEVICE_HAS_BATTERY;
-    }
+        size_t index;
+        
+        size_t count;
 
-    //------------------------------------------------------------------------
-    float ReadVoltage()
-    {
-        uint32_t millivolts = 0;
+        float sum;
 
-        for (int i = 0; i < BATTERY_READ_SAMPLES; i++)
+        AverageVoltage():
+            index(0),
+            count(0),
+            sum(0.0f)
         {
-            millivolts += analogReadMilliVolts(VADC_IN);
-            delay(2);
+            samples.fill(0.0f);
+        }
+    };
+
+    AverageVoltage _avgBattVolt;
+
+    //------------------------------------------------------------------------
+    void AddSample(float newSample)
+    {
+        if (_avgBattVolt.count == _avgBattVolt.samples.size())
+        {
+            _avgBattVolt.sum -= _avgBattVolt.samples.at(_avgBattVolt.index);
+        }
+        else
+        {
+            _avgBattVolt.count++;
         }
 
-        const float adcVoltage = (millivolts / static_cast<float>(BATTERY_READ_SAMPLES)) / 1000.0f;
-        return adcVoltage * BATTERY_DIVIDER * BATTERY_CALIBRATION;
+        _avgBattVolt.samples.at(_avgBattVolt.index) = newSample;
+        _avgBattVolt.sum += newSample;
+
+        _avgBattVolt.index = (_avgBattVolt.index + 1) % _avgBattVolt.samples.size();
     }
 
     //------------------------------------------------------------------------
@@ -119,5 +120,57 @@ namespace Battery
 
         // Should never get to this point, but return a value anyways.
         return 0;
+    }
+}
+
+//----------------------------------------------------------------------------
+// Battery Public namespace
+//----------------------------------------------------------------------------
+namespace Battery
+{
+    //------------------------------------------------------------------------
+    void InitializeBattery()
+    {
+        analogReadResolution(12);
+        pinMode(ADC_Ctrl, OUTPUT);
+        digitalWrite(ADC_Ctrl, HIGH);
+        delay(10);
+        analogSetPinAttenuation(VADC_IN, ADC_11db);
+        pinMode(VADC_IN, INPUT);
+    }
+
+    //------------------------------------------------------------------------
+    bool IsConnected()
+    {
+        return DEVICE_HAS_BATTERY;
+    }
+
+    //------------------------------------------------------------------------
+    float ReadVoltage()
+    {
+        uint32_t millivolts = analogReadMilliVolts(VADC_IN);
+
+        const float voltage = (millivolts / 1000.0f) * BATTERY_DIVIDER * BATTERY_CALIBRATION;
+
+        // We only care about percentage if the ESP32 is connected
+        // to a battery.
+        if (DEVICE_HAS_BATTERY)
+        {
+            AddSample(voltage);
+        }
+
+        return voltage;
+    }
+
+    //------------------------------------------------------------------------
+    int AveragePercentage()
+    {
+        // No readings yet.
+        if (_avgBattVolt.count == 0)
+        {
+            return 0;
+        }
+
+        return Percentage(_avgBattVolt.sum / _avgBattVolt.count);
     }
 }

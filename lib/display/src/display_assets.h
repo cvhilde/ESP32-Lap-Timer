@@ -6,6 +6,7 @@
 namespace DisplayAssets
 {
     extern const unsigned char satelliteBitmap[] PROGMEM;
+    extern const unsigned char batteryBitmap[] PROGMEM;
     extern const uint8_t Roboto_Light_14[] PROGMEM;
 }
 

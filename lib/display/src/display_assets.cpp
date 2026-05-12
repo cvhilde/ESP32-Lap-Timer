@@ -28,6 +28,19 @@ namespace DisplayAssets
 	};
 
     //------------------------------------------------------------------------
+	// Bit map for the battery symbol
+	const unsigned char batteryBitmap[] PROGMEM = {
+		0x3c,
+		0xff,
+		0x91,
+		0x89,
+		0x91,
+		0x89,
+		0x81,
+		0xff
+	};
+
+    //------------------------------------------------------------------------
 	// Custom font used for all text
 	const uint8_t Roboto_Light_14[] PROGMEM = {
 		0x0D, // Width: 13

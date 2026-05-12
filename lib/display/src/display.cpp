@@ -13,6 +13,7 @@
 #include <storage.h>
 #include <ble.h>
 #include <display_assets.h>
+#include <battery.h>
 
 //----------------------------------------------------------------------------
 // Private namespace
@@ -50,7 +51,7 @@ namespace
     void PermDraws()
     {
         _display.clear();
-        _display.drawXbm(120, 4, 8, 8, DisplayAssets::satelliteBitmap);
+        _display.drawXbm(120, 4, 8, 8, DisplayAssets::batteryBitmap);
         _display.display();
     }
 
@@ -137,7 +138,7 @@ namespace Display
         {
             _lastDrawTime = millis();
 
-            if (!_permDrawsDone)
+            if (!_permDrawsDone && Battery::IsConnected())
             {
                 PermDraws();
                 _permDrawsDone = true;
@@ -170,9 +171,6 @@ namespace Display
             }
 
             sprintf(line1, "GPS: %s", gpsStatus.c_str());
-
-            char subLine1[10];
-            sprintf(subLine1, "%d", status.fixData.satelliteCount);
 
             char line2[30];
             sprintf(line2, "Storage: %.2f%%", status.storageUsage);
@@ -209,7 +207,7 @@ namespace Display
             }  
 
             _display.setColor(BLACK);
-            _display.fillRect(0, 0, 80, 16);
+            _display.fillRect(0, 0, 120, 16);
             _display.fillRect(90, 0, 30, 16);
             _display.fillRect(0, 16, 100, 16);
             _display.fillRect(0, 32, 100, 16);
@@ -218,9 +216,18 @@ namespace Display
             _display.drawString(0, 16, line2);
             _display.drawString(0, 32, line3);
 
-            _display.setTextAlignment(TEXT_ALIGN_RIGHT);
-            _display.drawString(120, 0, subLine1);
-            _display.setTextAlignment(TEXT_ALIGN_LEFT);
+
+            if (Battery::IsConnected())
+            {
+                Battery::ReadVoltage();
+
+                char subLine1[10];
+                sprintf(subLine1, "%d%%", Battery::AveragePercentage());
+
+                _display.setTextAlignment(TEXT_ALIGN_RIGHT);
+                _display.drawString(118, 0, subLine1);
+                _display.setTextAlignment(TEXT_ALIGN_LEFT);
+            }
             
             _display.display();
         }

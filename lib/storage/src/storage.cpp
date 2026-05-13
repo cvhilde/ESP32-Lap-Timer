@@ -15,6 +15,7 @@
 #include <vector>
 #include <prefs.h>
 #include <gps.h>
+#include <battery.h>
 
 //----------------------------------------------------------------------------
 // Private namespace
@@ -40,6 +41,9 @@ namespace
     // Constant for the amount of time that must pass before another waypoint
     // crossing is detected
     constexpr unsigned long WAYPOINT_CROSSING_JITTER = 5000U;
+
+    constexpr int SESSION_STOP_BATTERY_THRESHOLD = 2;
+    constexpr int SESSION_START_BATTERY_THRESHOLD = 5;
 
     // Data associated with the ram buffer
     struct RamData
@@ -642,11 +646,35 @@ namespace Storage
     //------------------------------------------------------------------------
     void SessionStartStop(const GPS::FixData& data, const Button::Mode mode)
     {
+        // If the ESP32 is connected to battery power, run logic that
+        // determines if a session should be stopped if the battery
+        // percentage drops below a threshold. Don't use battery voltage
+        // since that does not have a rolling average and is prone to jitter.
+        if (Battery::IsConnected() && _sessionData.sessionActive)
+        {
+            if (Battery::AveragePercentage() <= SESSION_STOP_BATTERY_THRESHOLD)
+            {
+                switch (_sessionData.sessionType)
+                {
+                    case Storage::SessionType::LAP_TIMING:
+                        EndLapSession();
+                        break;
+                    case Storage::SessionType::ROUTE_TRACKING:
+                        EndRouteSession();
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
         // Short button press is related to start/stopping session logic
         if (mode == Button::Mode::SHORT)
         {
             // No session is active, start a new one
-            if (!_sessionData.sessionActive && data.valid)
+            if (!_sessionData.sessionActive && data.valid
+                  && (!Battery::IsConnected()
+                    || Battery::AveragePercentage() >= SESSION_START_BATTERY_THRESHOLD))
             {
                 switch (_sessionData.sessionType)
                 {

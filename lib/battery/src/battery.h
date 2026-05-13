@@ -12,12 +12,16 @@ namespace Battery
     // This is a user set value, not detected.
     bool IsConnected();
 
-    // Reads the battery voltage and stores it in the rolling average.
-    float ReadVoltage();
+    // Reads the battery voltage and returns it.
+    float ReadInstantVoltage();
 
     // Returns the average battery percentage based on the rolling
     // average of the read in battery voltages.
     int AveragePercentage();
+
+    // Should be called continuously in the main loop to provide an
+    // accurate battery reading whenever needed.
+    void UpdateBatteryPercentage();
 };
 
 #endif

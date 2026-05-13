@@ -219,8 +219,6 @@ namespace Display
 
             if (Battery::IsConnected())
             {
-                Battery::ReadVoltage();
-
                 char subLine1[10];
                 sprintf(subLine1, "%d%%", Battery::AveragePercentage());
 

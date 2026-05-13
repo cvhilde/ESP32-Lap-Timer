@@ -961,7 +961,7 @@ namespace
             power = "external";
         }
 
-        float voltage = Battery::ReadVoltage();
+        float voltage = Battery::ReadInstantVoltage();
         int percent   = Battery::AveragePercentage();
 
         const GPS::FixData fixData(GPS::GetFixData());

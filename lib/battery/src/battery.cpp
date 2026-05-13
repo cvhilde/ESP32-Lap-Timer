@@ -79,6 +79,8 @@ namespace
 
     constexpr size_t BATTERY_VOLTAGE_AVG_SAMPLES = 16;
 
+    constexpr unsigned long BATTERY_READ_INTERVAL = 1000U;
+
     constexpr Point CURVE[] = {
         {4.20f, 100}, {4.10f, 90}, {4.00f, 80}, {3.92f, 70},
         {3.85f, 60},  {3.79f, 50}, {3.75f, 40}, {3.70f, 30},
@@ -107,6 +109,8 @@ namespace
     };
 
     AverageVoltage _avgBattVolt;
+
+    unsigned long lastBatteryRead = 0U;
 
     //------------------------------------------------------------------------
     void AddSample(float newSample)
@@ -184,20 +188,10 @@ namespace Battery
     }
 
     //------------------------------------------------------------------------
-    float ReadVoltage()
+    float ReadInstantVoltage()
     {
         uint32_t millivolts = analogReadMilliVolts(VADC_IN);
-
-        const float voltage = (millivolts / 1000.0f) * BATTERY_DIVIDER * BATTERY_CALIBRATION;
-
-        // We only care about percentage if the ESP32 is connected
-        // to a battery.
-        if (DEVICE_HAS_BATTERY)
-        {
-            AddSample(voltage);
-        }
-
-        return voltage;
+        return (millivolts / 1000.0f) * BATTERY_DIVIDER * BATTERY_CALIBRATION;
     }
 
     //------------------------------------------------------------------------
@@ -210,5 +204,17 @@ namespace Battery
         }
 
         return Percentage(_avgBattVolt.sum / _avgBattVolt.count);
+    }
+
+    //------------------------------------------------------------------------
+    void UpdateBatteryPercentage()
+    {
+        if (DEVICE_HAS_BATTERY
+          && (millis() - lastBatteryRead) >= BATTERY_READ_INTERVAL)
+        {
+            lastBatteryRead = millis();
+
+            AddSample(ReadInstantVoltage());
+        }
     }
 }

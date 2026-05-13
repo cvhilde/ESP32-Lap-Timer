@@ -69,6 +69,9 @@ void loop() {
         BLE::GetStatus()
     };
 
+    // Update the battery percentage
+    Battery::UpdateBatteryPercentage();
+
     // Screen updates can be done even if fix data is not valid.
     Display::UpdateScreen(status);
 

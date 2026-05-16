@@ -45,6 +45,8 @@ namespace GPS
         WayPoints::Coord coord;
         double speed;     // mph
         double altitude;  // feet
+        uint32_t speedAccEstMmps;
+        unsigned long updateTimeMs;
         FixType fixType;
         uint8_t satelliteCount;
         GPSTimeData dateTime;
@@ -52,16 +54,26 @@ namespace GPS
         // If false, fixType and satellite count are still valid,
         // but positional and speed/altitude data are not.
         bool valid;
+        bool speedAccValid;
 
         FixData() :
             speed(0.0),
             altitude(0.0),
+            speedAccEstMmps(0U),
+            updateTimeMs(0U),
             fixType(FixType::NO_FIX),
             satelliteCount(0),
             dateTime(),
-            valid(false)
+            valid(false),
+            speedAccValid(false)
         {}
     };
+
+    // Multiplication constant for converting from m/s to mph.
+    constexpr double MPS_TO_MPH = 2.2369362920544;
+
+    // Multiplication constant for converting from mph to m/s.
+    constexpr double MPH_TO_MPS = 0.44704;
 
     // Multiplication constant for converting from mm/s to mph.
     constexpr double MM_S_TO_MPH = 0.00223694;

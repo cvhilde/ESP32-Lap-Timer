@@ -6,6 +6,7 @@
 #include <led.h>
 #include <prefs.h>
 #include <battery.h>
+#include <drag.h>
 
 bool ledFlag = false;
 
@@ -78,6 +79,16 @@ void loop() {
     // Update BLE. Still allow pairing and other BLE logic even with
     // no fix.
     BLE::UpdateBLE(mode);
+
+    // Drag mode is configured over BLE and owns its timing once active.
+    // While active, consume the button press so lap/route sessions are not
+    // started by the same ready/stage action.
+    Drag::Update(status.fixData, mode);
+    if (Drag::IsActive())
+    {
+        ledFlag = false;
+        return;
+    }
 
     // Update the session type
     Storage::UpdateSessionType(mode);

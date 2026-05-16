@@ -29,7 +29,11 @@ namespace Storage
     const String LAP_TIMESTAMPS_PREFIX = "/timestamps_";
     const String SUMMARY_PREFIX = "/summary_";
     const String ROUTE_LOG_PREFIX = "/route_";
+    const String DRAG_ROUTE_PREFIX = "/drag_route_";
+    const String DRAG_EVENTS_PREFIX = "/drag_events_";
+    const String DRAG_CONFIG_PREFIX = "/drag_config_";
     const String FILE_TYPE = ".csv";
+    const String JSON_FILE_TYPE = ".json";
 
     // Initialize the storage and LittleFS partition
     bool InitializeStorage();
@@ -80,6 +84,9 @@ namespace Storage
 
     // Returns the current session Mode
     SessionType GetSessionMode();
+
+    // Returns true when a lap or route storage session is active.
+    bool IsSessionActive();
 
     // Returns the current track name
     String GetTrackName();

@@ -950,6 +950,12 @@ namespace Storage
     }
 
     //------------------------------------------------------------------------
+    bool IsSessionActive()
+    {
+        return _sessionData.sessionActive;
+    }
+
+    //------------------------------------------------------------------------
     String GetTrackName()
     {
         return _sessionData.currentTrackName;

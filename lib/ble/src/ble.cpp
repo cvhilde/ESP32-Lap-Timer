@@ -23,6 +23,7 @@
 #include <prefs.h>
 #include <battery.h>
 #include <button.h>
+#include <drag.h>
 
 //----------------------------------------------------------------------------
 // Private namespace
@@ -38,7 +39,7 @@ namespace
     constexpr char     BASE64_KEY[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     // Constants for cmd size and default MTU's
-    constexpr size_t   CMD_SIZE         = 256;
+    constexpr size_t   CMD_SIZE         = 384;
     constexpr uint16_t DESIRED_MTU_SIZE = 247;
     constexpr uint16_t DEFAULT_MTU_SIZE = 23;
 
@@ -91,6 +92,8 @@ namespace
         SET_LAP_HZ,
         SET_ROUTE_HZ,
         BAD_HZ,
+        SET_DRAG_CONFIG,
+        DRAG_ABORT,
         GET_ALL_DATA,
         INVALID
     };
@@ -596,12 +599,125 @@ namespace
         {
             cmd.type = CommandType::GET_ALL_DATA;
         }
+        else if (line.startsWith("SET_DRAG,"))
+        {
+            cmd.type = CommandType::SET_DRAG_CONFIG;
+            SetCmdArg(cmd, line.substring(9));
+        }
+        else if (line.startsWith("DRAG_CONFIG,"))
+        {
+            cmd.type = CommandType::SET_DRAG_CONFIG;
+            SetCmdArg(cmd, line.substring(12));
+        }
+        else if (line.startsWith("{"))
+        {
+            cmd.type = CommandType::SET_DRAG_CONFIG;
+            SetCmdArg(cmd, line);
+        }
+        else if (line == "DRAG_ABORT")
+        {
+            cmd.type = CommandType::DRAG_ABORT;
+        }
         else
         {
             return;
         }
 
         QueueCommand(cmd);
+    }
+
+    //------------------------------------------------------------------------
+    int FindCompleteJsonEnd(const String& value, int jsonStart)
+    {
+        bool inString = false;
+        bool escaped = false;
+        int depth = 0;
+
+        for (int i = jsonStart; i < value.length(); i++)
+        {
+            char c = value[i];
+
+            if (escaped)
+            {
+                escaped = false;
+                continue;
+            }
+
+            if (c == '\\' && inString)
+            {
+                escaped = true;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                inString = !inString;
+                continue;
+            }
+
+            if (inString)
+            {
+                continue;
+            }
+
+            if (c == '{')
+            {
+                depth++;
+            }
+            else if (c == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return i;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    //------------------------------------------------------------------------
+    bool TryQueueCompleteDragJsonCommand()
+    {
+        String trimmed = _data.rxBuffer;
+        trimmed.trim();
+
+        int prefixLength = -1;
+        if (trimmed.startsWith("SET_DRAG,"))
+        {
+            prefixLength = 9;
+        }
+        else if (trimmed.startsWith("DRAG_CONFIG,"))
+        {
+            prefixLength = 12;
+        }
+        else if (trimmed.startsWith("{"))
+        {
+            prefixLength = 0;
+        }
+
+        if (prefixLength < 0)
+        {
+            return false;
+        }
+
+        int jsonStart = trimmed.indexOf('{', prefixLength);
+        if (jsonStart < 0)
+        {
+            return true;
+        }
+
+        int jsonEnd = FindCompleteJsonEnd(trimmed, jsonStart);
+        if (jsonEnd < 0)
+        {
+            return true;
+        }
+
+        String command = trimmed.substring(0, jsonEnd + 1);
+        QueueTextCommand(command);
+        _data.rxBuffer = "";
+        return true;
     }
 
     //------------------------------------------------------------------------
@@ -702,6 +818,18 @@ namespace
                     vTaskDelay(1);
                     _data.totalFiles += 1;
                 }
+            }
+
+            // Read for drag timing logs.
+            if (Storage::FileExists(Storage::DRAG_ROUTE_PREFIX + ts + Storage::FILE_TYPE))
+            {
+                TxLine(Storage::DRAG_ROUTE_PREFIX + ts + Storage::FILE_TYPE + "\n");
+                vTaskDelay(1);
+                TxLine(Storage::DRAG_EVENTS_PREFIX + ts + Storage::FILE_TYPE + "\n");
+                vTaskDelay(1);
+                TxLine(Storage::DRAG_CONFIG_PREFIX + ts + Storage::JSON_FILE_TYPE + "\n");
+                vTaskDelay(1);
+                _data.totalFiles += 3;
             }
         }
 
@@ -920,6 +1048,26 @@ namespace
     }
 
     //------------------------------------------------------------------------
+    void HandleSetDragConfig(const String& json)
+    {
+        if (Storage::IsSessionActive())
+        {
+            TxLine("ERR,SESSION_ACTIVE\n");
+            return;
+        }
+
+        String error;
+        if (Drag::ConfigureFromJson(json, error))
+        {
+            TxLine("DRAG,OK\n");
+        }
+        else
+        {
+            TxLine("ERR,DRAG_CONFIG," + error + "\n");
+        }
+    }
+
+    //------------------------------------------------------------------------
     void HandleAllData()
     {
         if (_tx.state != TxState::IDLE)
@@ -942,6 +1090,11 @@ namespace
             default:
                 session = "unknown";
                 break;
+        }
+
+        if (Drag::IsActive())
+        {
+            session = "drag";
         }
 
         String trackName(Storage::GetTrackName());
@@ -1184,6 +1337,13 @@ namespace
                 case CommandType::BAD_HZ:
                     TxLine("ERR,BAD_HZ\n");
                     break;
+                case CommandType::SET_DRAG_CONFIG:
+                    HandleSetDragConfig(cmd.arg);
+                    break;
+                case CommandType::DRAG_ABORT:
+                    Drag::Abort();
+                    TxLine("DRAG,ABORTED\n");
+                    break;
                 case CommandType::GET_ALL_DATA:
                     HandleAllData();
                     break;
@@ -1279,6 +1439,11 @@ namespace
             for (size_t i = 0; i < len; i++)
             {
                 _data.rxBuffer += static_cast<char>(data[i]);
+            }
+
+            if (TryQueueCompleteDragJsonCommand())
+            {
+                return;
             }
 
             while (true)

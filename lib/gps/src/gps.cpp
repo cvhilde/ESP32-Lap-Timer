@@ -80,13 +80,21 @@ namespace GPS
         _gps.checkUblox();
 
         FixType fix = static_cast<FixType>(_gps.getFixType());
+        bool gnssFixOk = _gps.getGnssFixOk();
+        bool invalidLlh = _gps.getInvalidLlh();
+        uint32_t speedAccEstMmps = _gps.getSpeedAccEst();
 
-        if (fix >= FixType::DEAD_RECKONING && fix <= FixType::GNSS_DEAD_RECKONING)
+        if (    fix >= FixType::DEAD_RECKONING
+             && fix <= FixType::GNSS_DEAD_RECKONING
+             && gnssFixOk
+             && !invalidLlh)
         {
             nextFixData.coord.lat = _gps.getLatitude()    * LAT_LONG_TO_DEGREES;
             nextFixData.coord.lng = _gps.getLongitude()   * LAT_LONG_TO_DEGREES;
-            nextFixData.speed     = _gps.getGroundSpeed() * MM_S_TO_MPH;
+            nextFixData.speed     = max(0, _gps.getGroundSpeed()) * MM_S_TO_MPH;
             nextFixData.altitude  = _gps.getAltitudeMSL() * MM_TO_FEET;
+            nextFixData.speedAccEstMmps = speedAccEstMmps;
+            nextFixData.speedAccValid = speedAccEstMmps > 0U;
             
             nextFixData.dateTime.year   = _gps.getYear();
             nextFixData.dateTime.month  = _gps.getMonth();
@@ -112,6 +120,7 @@ namespace GPS
 
         nextFixData.fixType        = fix;
         nextFixData.satelliteCount = _gps.getSIV();
+        nextFixData.updateTimeMs   = millis();
 
         portENTER_CRITICAL(&_fixDataMux);
         _fixData = nextFixData;

@@ -34,6 +34,12 @@
 /// 1.4% * 25 = 35% storage usage per hour
 /// 100/35 = 2.85 hours of logging time
 ///
+/// Full discharge from 93% to 1%
+/// 4.9 hours
+///
+/// Full charge from 1% to 100%
+/// ~2 hours
+///
 ///===========================================================================
 
 #include <battery.h>

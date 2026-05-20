@@ -1,5 +1,11 @@
 # ESP32 Lap Timer
 
+## Update
+This may seem unnecessary, but due to the security breach within GitHub, I will be sanitizing this repo
+(no runners, PRs, issues) and moving my workflow over into a self hosted GitLab repo.
+I will keep this repo updated for major releases, but wont include the iterative releases.
+
+
 ## About this project
 
 My goal with this project was to make it something that could easily be introduced to any racing platform,
